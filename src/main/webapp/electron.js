@@ -11,8 +11,58 @@ const log = require('electron-log')
 const program = require('commander')
 
 const __DEV__ = process.env.NODE_ENV === 'development'
-		
+
 let windowsRegistry = []
+function loadLocalLibrary(win, key, value){
+	win.webContents.send('args-obj', {'args':{'llib':{key, value}}});
+}
+
+function importLocalLibraries(win, file_path){
+	if(fs.lstatSync(file_path).isFile()){
+		let key_lib = path.basename(file_path)
+		if (key_lib.slice(-4)=='.xml'){
+			fs.readFile(file_path,'utf8', (err, data)=>{
+				loadLocalLibrary(win, key_lib, data)
+			})
+		}
+	}else if(fs.lstatSync(file_path).isDirectory()) {
+		fs.readdir(file_path,(err, files)=>{
+			files.map((file)=>importLocalLibraries(win,path.join(file_path, file)))
+		})
+	}
+}
+
+function loadLocalLibraries (win,query){
+	if(query['llibs']){
+		if(!Array.isArray(query['llibs'])) query['llibs']=[query['llibs']]
+		//console.log(query_read['llibs'])
+		query['llibs'].forEach((file_path)=>{
+			//if(fs.existsSync(file_path)){
+			let keys = importLocalLibraries(win, file_path)
+			console.log(keys)
+				//let L_keys = keys.filter((el)=>el!=null).map((key)=>("L"+key))
+				//query_read['clibs'] = query_read['clibs'].concat(L_keys)
+				//console.log(query_read['clibs'])
+			//}
+		})
+	}
+}
+
+function getUserParams(must_query={}){
+	let path_url_params = path.join(app.getPath('userData'),'urlParams.json')
+	let query = {}
+	if(!fs.existsSync(path_url_params)){
+		query = DEFAULT_QUERY
+		fs.writeFile(path_url_params, JSON.stringify(query), ()=>{})
+		console.log('Written default user params')
+	}else{
+		urlparams = fs.readFileSync(path_url_params,'utf8')
+		query = JSON.parse(urlparams)
+	}
+	if(!query['clibs']) query['clibs']=[]
+	if(!Array.isArray(query['clibs'])) query['clibs']=[query['clibs']]
+	return {...query,...must_query}
+}
 
 function createWindow (opt = {})
 {
@@ -36,8 +86,8 @@ function createWindow (opt = {})
 
 	let wurl = url.format(
 	{
-		pathname: __DEV__ ? 'test.draw.io' : 'www.draw.io',
-		protocol: __DEV__ ? 'http' : 'https:',
+		pathname: `${__dirname}/index.html`,
+		protocol: 'file:',
 		query:
 		{
 			'test': __DEV__ ? 1 : 0,
@@ -57,7 +107,7 @@ function createWindow (opt = {})
 	mainWindow.loadURL(wurl)
 
 	// Open the DevTools.
-	if (__DEV__)
+	if (__DEV__)//
 	{
 		mainWindow.webContents.openDevTools()
 	}
@@ -85,7 +135,7 @@ function createWindow (opt = {})
 								title: 'Confirm',
 								message: 'The document has unsaved changes. Do you really want to quit without saving?' //mxResources.get('allChangesLost')
 							})
-							
+
 						if (choice === 1)
 						{
 							win.destroy()
@@ -101,6 +151,7 @@ function createWindow (opt = {})
 		}
 	})
 
+
 	// Emitted when the window is closed.
 	mainWindow.on('closed', (event/*:WindowEvent*/) =>
 	{
@@ -108,7 +159,10 @@ function createWindow (opt = {})
 		console.log('Window closed idx:%d', index)
 		windowsRegistry.splice(index, 1)
 	})
-	
+	mainWindow.webContents.on('dom-ready',()=>{
+		let query = getUserParams()
+		loadLocalLibraries(mainWindow, query)
+	})
 	mainWindow.webContents.on('did-fail-load', function(err)
     {
         let ourl = url.format(
@@ -133,7 +187,7 @@ function createWindow (opt = {})
 			},
 			slashes: true,
 		})
-		
+
 		mainWindow.loadURL(ourl)
     })
 
@@ -155,17 +209,17 @@ app.on('ready', e =>
 	ipcMain.on('winman', (event, arg) =>
 	{
 		console.log('ipcMain.on winman', arg)
-		
+
 		if (arg.action === 'newfile')
 		{
 			event.returnValue = createWindow(arg.opt).id
-			
+
 			return
 		}
-		
+
 		event.returnValue = 'pong'
 	})
-	
+
     let argv = process.argv
     // https://github.com/electron/electron/issues/4690#issuecomment-217435222
     if (process.defaultApp != true)
@@ -178,18 +232,18 @@ app.on('ready', e =>
         .usage('[options] [file]')
         .option('-c, --create', 'creates a new empty file if no file is passed')
         .parse(argv)
-        
+
     let win = createWindow()
-    
+
     win.webContents.on('did-finish-load', function()
     {
         win.webContents.send('args-obj', program);
-        
+
         win.webContents.setZoomFactor(1);
         win.webContents.setVisualZoomLevelLimits(1, 1);
         win.webContents.setLayoutZoomLevelLimits(0, 0);
     });
-	
+
 	let template = [{
 	    label: app.getName(),
 	    submenu: [
@@ -210,7 +264,7 @@ app.on('ready', e =>
 	        click() { app.quit(); }
 	      }]
 	}]
-	
+
 	if (process.platform === 'darwin')
 	{
 	    template = [{
@@ -250,7 +304,7 @@ app.on('ready', e =>
 	      }]
 	    }]
 	}
-	
+
 	const menuBar = menu.buildFromTemplate(template)
 	menu.setApplicationMenu(menuBar)
 })
