@@ -12,6 +12,34 @@ const program = require('commander')
 
 const __DEV__ = process.env.NODE_ENV === 'development'
 
+const DEFAULT_QUERY = {
+	'test': __DEV__ ? 1 : 0,
+	'db': 0,
+	'gapi': 0,
+	'od': 0,
+	'gh': 0,
+	'tr': 0,
+	'picker': 0,
+	'mode': 'device',
+	'browser': 0,
+	'appcache': 1
+}
+const DEFAULT_OFFLINE_QUERY = {
+	'dev': __DEV__ ? 1 : 0,
+	'drawdev': __DEV__ ? 1 : 0,
+	'test': __DEV__ ? 1 : 0,
+	'db': 0,
+	'gapi': 0,
+	'od': 0,
+	'gh': 0,
+	'tr': 0,
+	'analytics': 0,
+	'picker': 0,
+	'mode': 'device',
+	'browser': 0,
+	'export': 'https://exp.draw.io/ImageExport4/export'
+}
+
 let windowsRegistry = []
 function loadLocalLibrary(win, key, value){
 	win.webContents.send('args-obj', {'args':{'llib':{key, value}}});
@@ -35,15 +63,8 @@ function importLocalLibraries(win, file_path){
 function loadLocalLibraries (win,query){
 	if(query['llibs']){
 		if(!Array.isArray(query['llibs'])) query['llibs']=[query['llibs']]
-		//console.log(query_read['llibs'])
 		query['llibs'].forEach((file_path)=>{
-			//if(fs.existsSync(file_path)){
-			let keys = importLocalLibraries(win, file_path)
-			console.log(keys)
-				//let L_keys = keys.filter((el)=>el!=null).map((key)=>("L"+key))
-				//query_read['clibs'] = query_read['clibs'].concat(L_keys)
-				//console.log(query_read['clibs'])
-			//}
+			importLocalLibraries(win, file_path)
 		})
 	}
 }
@@ -83,27 +104,14 @@ function createWindow (opt = {})
 	windowsRegistry.push(mainWindow)
 
 	console.log('createWindow', opt)
-
+	let query = getUserParams()
 	let wurl = url.format(
 	{
 		pathname: `${__dirname}/index.html`,
 		protocol: 'file:',
-		query:
-		{
-			'test': __DEV__ ? 1 : 0,
-			'db': 0,
-			'gapi': 0,
-			'od': 0,
-			'gh': 0,
-			'tr': 0,
-			'picker': 0,
-			'mode': 'device',
-			'browser': 0,
-			'appcache': 1
-		},
+		query: query,
 		slashes: true
 	})
-
 	mainWindow.loadURL(wurl)
 
 	// Open the DevTools.
@@ -165,26 +173,12 @@ function createWindow (opt = {})
 	})
 	mainWindow.webContents.on('did-fail-load', function(err)
     {
-        let ourl = url.format(
+			let query = getUserParams(DEFAULT_OFFLINE_QUERY)
+			let ourl = url.format(
 		{
 			pathname: `${__dirname}/index.html`,
 			protocol: 'file:',
-			query:
-			{
-				'dev': __DEV__ ? 1 : 0,
-				'drawdev': __DEV__ ? 1 : 0,
-				'test': __DEV__ ? 1 : 0,
-				'db': 0,
-				'gapi': 0,
-				'od': 0,
-				'gh': 0,
-				'tr': 0,
-				'analytics': 0,
-				'picker': 0,
-				'mode': 'device',
-				'browser': 0,
-				'export': 'https://exp.draw.io/ImageExport4/export'
-			},
+			query:query,			
 			slashes: true,
 		})
 
