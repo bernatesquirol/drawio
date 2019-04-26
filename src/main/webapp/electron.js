@@ -9,9 +9,8 @@ const app = electron.app
 const BrowserWindow = electron.BrowserWindow
 const log = require('electron-log')
 const program = require('commander')
-
+const flowio = require('./drawio-node')
 const __DEV__ = process.env.NODE_ENV === 'development'
-
 const DEFAULT_QUERY = {
 	'test': __DEV__ ? 1 : 0,
 	'db': 0,
@@ -22,7 +21,8 @@ const DEFAULT_QUERY = {
 	'picker': 0,
 	'mode': 'device',
 	'browser': 0,
-	'appcache': 1
+	'appcache': 1,
+	'basics_file_path':path.join(app.getPath('userData'),'basics.xml'),
 }
 const DEFAULT_OFFLINE_QUERY = {
 	'dev': __DEV__ ? 1 : 0,
@@ -37,15 +37,17 @@ const DEFAULT_OFFLINE_QUERY = {
 	'picker': 0,
 	'mode': 'device',
 	'browser': 0,
-	'export': 'https://exp.draw.io/ImageExport4/export'
+	'export': 'https://exp.draw.io/ImageExport4/export',
+	'basics_file_path':path.join(app.getPath('userData'),'basics.xml')
 }
-
+let basics_lib = null
 let windowsRegistry = []
 function loadLocalLibrary(win, key, value){
+	console.log(key,value)
 	win.webContents.send('args-obj', {'args':{'llib':{key, value}}});
 }
 
-function importLocalLibraries(win, file_path){
+function importLocalLibraries(win, file_path, query){
 	if(fs.lstatSync(file_path).isFile()){
 		let key_lib = path.basename(file_path)
 		if (key_lib.slice(-4)=='.xml'){
@@ -53,9 +55,31 @@ function importLocalLibraries(win, file_path){
 				loadLocalLibrary(win, key_lib, data)
 			})
 		}
+		if (key_lib.slice(-7)=='.drawio'){
+			if (basics_lib==null) {
+				basics_lib = fs.readFileSync(query.basics_file_path)
+			}
+			fs.readFile(file_path,'utf8', (err, data)=>{
+				flowio.parseString(data).then((data_value)=>{
+						let compressed = data_value['mxfile']['diagram'][0]._;
+						flowio.parseString(flowio.decompress(compressed),{'explicitChildren':true}).then((result_decompressed)=>{
+							let inputs = flowio.getClearLabels(flowio.findChildren(result_decompressed, {'key_flowio':'input_func'}))
+							let name_func = flowio.getClearLabels(flowio.findChildren(result_decompressed, {'key_flowio':'name_func'}))[0]
+							let outputs = flowio.getClearLabels(flowio.findChildren(result_decompressed, {'key_flowio':'output_func'}))
+							flowio.createMinimizedFunctionCell(basics_lib,inputs, outputs, name_func).then((all_blocks)=>{
+								let mxGraph = flowio.getDiagram(all_blocks)
+								let value = flowio.compress(flowio.toString(mxGraph,{headless:true}))
+								loadLocalLibrary(win,'algo', '<mxlibrary>[{"xml":"'+value+'", "title":"title"}]</mxlibrary>')
+							})
+
+						}).catch((err)=>(console.log(err)))
+				}).catch(()=>(console.log('ei2')))
+
+			})
+		}
 	}else if(fs.lstatSync(file_path).isDirectory()) {
 		fs.readdir(file_path,(err, files)=>{
-			files.map((file)=>importLocalLibraries(win,path.join(file_path, file)))
+			files.map((file)=>importLocalLibraries(win,path.join(file_path, file),query))
 		})
 	}
 }
@@ -64,7 +88,7 @@ function loadLocalLibraries (win,query){
 	if(query['llibs']){
 		if(!Array.isArray(query['llibs'])) query['llibs']=[query['llibs']]
 		query['llibs'].forEach((file_path)=>{
-			importLocalLibraries(win, file_path)
+			importLocalLibraries(win, file_path, query)
 		})
 	}
 }
@@ -115,7 +139,7 @@ function createWindow (opt = {})
 	mainWindow.loadURL(wurl)
 
 	// Open the DevTools.
-	if (__DEV__)//
+	if (true)//
 	{
 		mainWindow.webContents.openDevTools()
 	}
@@ -178,7 +202,7 @@ function createWindow (opt = {})
 		{
 			pathname: `${__dirname}/index.html`,
 			protocol: 'file:',
-			query:query,			
+			query:query,
 			slashes: true,
 		})
 
