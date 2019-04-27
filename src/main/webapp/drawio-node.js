@@ -2,6 +2,7 @@ const xml2js = require('xml2js');
 const pako = require('pako');
 const _ = require('lodash');
 const ROOT_ID = 1
+const fs = require('fs')
 //stackoverflow
 String.prototype.formatUnicorn = function (){
   var d=this.toString();
@@ -145,28 +146,44 @@ const modifySimpleBlock = (block_o, id=null, id_parent=null,new_title=null, x=nu
 const getGeoSimpleBlock = (block_o)=>{
      return {...block_o.object.mxCell[0].mxGeometry[0].$}
 }
+
+
 //modifySimpleBlock(input[0],'id-input','parent_id', 1,2,4,5)
-const createMinimizedFunctionCell = (basics_lib, inputs, outputs, function_id, function_name, top_padding=10, padding_side=10)=>{
+const createMinimizedFunctionCell = (basics_lib_path, inputs, outputs, function_id, function_name, top_padding=10, padding_side=20)=>{
+    let basics_lib = getBasics(basics_lib_path)
     let function_promise = getSimpleBlockFromLibrary(basics_lib, 'function')
     let input_promise = getSimpleBlockFromLibrary(basics_lib, 'input')
     let output_promise = getSimpleBlockFromLibrary(basics_lib, 'output')
     return Promise.all([function_promise,input_promise,output_promise]).then(function(result){
-
+        let real_func_id = function_id+'-function-'+Date.now()
         let func = result[0][0]
         let geo_func = getGeoSimpleBlock(func)
         let input = result[1][0]
         let geo_input = getGeoSimpleBlock(input)
         let output = result[2][0]
         let geo_output = getGeoSimpleBlock(output)
-        let func_block = modifySimpleBlock(func,id=function_id, id_parent=ROOT_ID, function_name)
-        let input_blocks = inputs.map((input_text, index)=>(modifySimpleBlock(block_o=input,id=input_text,id_parent=function_id, input_text, x=padding_side, y=index*Number(geo_input.height)+top_padding)))
-        let output_blocks = outputs.map((output_text, index)=>(modifySimpleBlock(block_o=output,id=output_text,id_parent=function_id, output_text, x=geo_func.width-padding_side-geo_output.width, y=index*Number(geo_output.height)+top_padding)))
+        
+        let input_blocks = inputs.map((input_text, index)=>(modifySimpleBlock(block_o=input,id=input_text+'-input-'+Date.now(),id_parent=real_func_id, input_text, x=padding_side, y=index*(Number(geo_input.height)+top_padding)+top_padding)))
+        let output_blocks = outputs.map((output_text, index)=>(modifySimpleBlock(block_o=output,id=output_text+'-output-'+Date.now(),id_parent=real_func_id, output_text, x=geo_func.width-padding_side-geo_output.width, y=index*(Number(geo_output.height)+top_padding)+top_padding)))
+        let func_block = modifySimpleBlock(func,id=real_func_id, id_parent=ROOT_ID, function_name, x=null, y=null, width=null, height=(Number(geo_output.height)+top_padding)*Math.max(inputs.length, outputs.length)+top_padding)
         return [func_block].concat(input_blocks).concat(output_blocks)
     })
 }
+const groupBy_values = (array, func)=>{
+  let groupby_val = _.groupBy(array,func)
+  return Object.keys(groupby_val).reduce((final_object, key, index, array)=>{
+    let values_key = groupby_val[key].map((obj)=>obj[key])
+    final_object[key]=values_key
+    return final_object
+  },{})
+}
 const getDiagram = (array_obj)=>{
-  return {'mxGraphModel':{'root':[{..._.groupBy(array_obj, Object.keys),'mxCell':[{$: {id: "0"}},{$: {id: ROOT_ID, parent: "0"}}]}]}}
+  return {'mxGraphModel':{'root':[{...groupBy_values(array_obj, Object.keys),'mxCell':[{$: {id: "0"}},{$: {id: ROOT_ID, parent: "0"}}]}]}}
 
+}
+
+const getBasics = (basics_file_path)=>{
+  return fs.existsSync(basics_file_path)?fs.readFileSync(basics_file_path):basics
 }
 module.exports={
   //encode: encode,
@@ -180,8 +197,10 @@ module.exports={
   modifySimpleBlock:modifySimpleBlock,
   createMinimizedFunctionCell:createMinimizedFunctionCell,
   findChildren:findChildren,
-  getDiagram:getDiagram
+  getDiagram:getDiagram,
+  getBasics:getBasics
 }
+const basics = '<mxlibrary>[{"xml":"dVJNc4IwEP01HO1AouC1QvXSnjz02ImwSGpgaQgF++u7CUF0pj0w7Mt7efuRDXhajwct2uoNC1ABfwl4qhHNFNVjCkoFLJRFwLOAsZC+gO3/YSPHhq3Q0Jg/LuDpE3JDCiVONlnmyFiRdldiY5nOXBU4Jv7qcSZWnfyh02cSRKwdF5Kis/snOyMN3Uyy2ZCyTp5e4UorFQ4SPy5wnbLLpu3NRM1NMAsf+1uKYhr7pgArDcl0qKSBYytyyw40RjqrTG1bi3zpe1FLZbO99rksBLml2HRo/Rx/dJ1l0ZawUPLcEMhpfKDpoDMaL5CiQu3S8yI+xZv4xrzLwlRzMqnUnbIsS5bnt8a/QRsY/32m6K7pA2ANRl9J4i+wJ5bwhMfJZr3mjLMwhlXEJ5fBl0BoOz12WIE8V97YL0Aougmfb+bLWlDgRz1DvygzXBbSSR/29Rc=","w":80,"h":20,"aspect":"fixed","title":"input"},{"xml":"dVJNb4MwDP01OU4KQYPuuMLay3bqYccpBReyBsxCGHS/fk4IpZU2pAjb7/nbLM6aaW9kV79hCZrFLyzODKKdpWbKQGsmuCpZnDMhOD0mdv+gkUd5Jw209g8HPH5CYYmh5dElyz2YaOJuT9g6pLcXDR5JvgZcgIde/ZD1mQiR6KYVJKny/3RrlSXPNF8CUtY5ZmD40k4aR4UfZ7jM2XGw3WBnbOlCOPW+wbUqYXBoS3BUTlHHWlk4dLJw6EhzJFttG9dbFGrfyUZpl+51KFQpKVqGbY8unscPvrU82gQ9Q43G54q5/8gutapashU0VyBw21uDZ7ihPiVpLJMr8q5KWy9FKK1vmBCVj5BeJ/INxsL07/6im2HsARuw5kKUMcQndDOvmNegqjp4hbVz2c96dfVcj4GEMN9FDeexqOsZeurdlf4C","w":80,"h":20,"aspect":"fixed","title":"output"},{"xml":"dVNLU4NADP41HHXobgv1aFsfB51x9ODR2UIKqwvBJbWtv94ElhademBI8uX5JRvpZbW/86YpHzEHF+mbSC89IvVStV+Cc5GKbR7pVaRUzF+kbv9BJx0aN8ZDTWcCcP0OGbGHM2spturAxLHvYoO1IC0dHHRI8rmVNhbO1nBRgi1K1q7ZZcY5ZyecpaL7pwuyxMHpasjJhfu0waPrbuNwZ/HtAw59A5ttnZHFukeHUZSov6c8taa+wJPNjHuQOZ6wtV0CvVojEVZcanC4drYQgLBha0mVTD1hsSWPH/BqcyoHS2kaSd94zKBt2bIrLcFLYzIx73hJbPO4rXPIhxj7LVh8GSeJnqirq1RP0+k8Fsz47KWHE6HXOrdEh74bQOczmOfTYx8jZK7WOpGIjJkzzL0PtYTJW1NZJ7zdg/sCmfBIq0wM+3/vYDLi8w6wAvIHdtkFAoTxpL+VeNi1GNNgM22vF8fQY7ZnPilTF7waFYf6WoewsGI1Dfqo3PxMNfWnmnEEvjYEC2G9HZ8yC6NBTqbuVgY13Pugnt5VHz1+dj8=","w":260,"h":70,"aspect":"fixed","title":"function"}]</mxlibrary>'
 /*
 
 let final_func = await createMinimizedFunctionCell(['a1','a2','a3'],['b1','b2'],'function_id')

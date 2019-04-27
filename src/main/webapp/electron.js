@@ -43,7 +43,6 @@ const DEFAULT_OFFLINE_QUERY = {
 let basics_lib = null
 let windowsRegistry = []
 function loadLocalLibrary(win, key, value){
-	console.log(key,value)
 	win.webContents.send('args-obj', {'args':{'llib':{key, value}}});
 }
 
@@ -56,21 +55,23 @@ function importLocalLibraries(win, file_path, query){
 			})
 		}
 		if (key_lib.slice(-7)=='.drawio'){
-			if (basics_lib==null) {
-				basics_lib = fs.readFileSync(query.basics_file_path)
-			}
 			fs.readFile(file_path,'utf8', (err, data)=>{
 				flowio.parseString(data).then((data_value)=>{
 						let compressed = data_value['mxfile']['diagram'][0]._;
 						flowio.parseString(flowio.decompress(compressed),{'explicitChildren':true}).then((result_decompressed)=>{
-							let inputs = flowio.getClearLabels(flowio.findChildren(result_decompressed, {'key_flowio':'input_func'}))
-							let name_func = flowio.getClearLabels(flowio.findChildren(result_decompressed, {'key_flowio':'name_func'}))[0]
-							let outputs = flowio.getClearLabels(flowio.findChildren(result_decompressed, {'key_flowio':'output_func'}))
-							flowio.createMinimizedFunctionCell(basics_lib,inputs, outputs, name_func).then((all_blocks)=>{
+							let inputs = flowio.getClearLabels(flowio.findChildren(result_decompressed, {'flowio_key':'input_func'}))
+							let name_func = flowio.getClearLabels(flowio.findChildren(result_decompressed, {'flowio_key':'name_func'}))[0]
+							let outputs = flowio.getClearLabels(flowio.findChildren(result_decompressed, {'flowio_key':'output_func'}))
+							console.log(inputs.length)
+							flowio.createMinimizedFunctionCell(query? query.basics_file_path:null,inputs, outputs, name_func, name_func).then((all_blocks)=>{
+								//console.log(JSON.stringify(all_blocks))
 								let mxGraph = flowio.getDiagram(all_blocks)
+								console.log(flowio.toString(mxGraph,{headless:true}))
 								let value = flowio.compress(flowio.toString(mxGraph,{headless:true}))
-								loadLocalLibrary(win,'algo', '<mxlibrary>[{"xml":"'+value+'", "title":"title"}]</mxlibrary>')
-							})
+								//console.log('<mxlibrary>[{"xml":"'+value+'", "title":"title"}]</mxlibrary>')
+								loadLocalLibrary(win,'algo', '<mxlibrary>[{"xml":"'+value+'", "title":"title","w":80,"h":20,"aspect":"fixed"}]</mxlibrary>')
+								
+							}).catch((err)=>(console.log('hey',err)))
 
 						}).catch((err)=>(console.log(err)))
 				}).catch(()=>(console.log('ei2')))
