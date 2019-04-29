@@ -1,6 +1,6 @@
-const xml2js = require('xml2js');
-const pako = require('pako');
-const _ = require('lodash');
+const _ = require('./lodash');
+const xml2js = require('./xml2js/xml2js');
+const pako = require('./pako');
 const ROOT_ID = 1
 const fs = require('fs')
 //stackoverflow

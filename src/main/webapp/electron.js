@@ -9,7 +9,7 @@ const app = electron.app
 const BrowserWindow = electron.BrowserWindow
 const log = require('electron-log')
 const program = require('commander')
-const flowio = require('./drawio-node')
+const flowio = require('./flowio/drawio-node')
 const __DEV__ = process.env.NODE_ENV === 'development'
 const DEFAULT_QUERY = {
 	'test': __DEV__ ? 1 : 0,
