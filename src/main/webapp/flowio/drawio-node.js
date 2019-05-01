@@ -132,7 +132,7 @@ const getSimpleBlockFromLibrary = function(library, title){
     })
 }
 //let input = ((await getSimpleBlockFromLibrary(basics, 'input'))[0])
-const modifySimpleBlock = (block_o, id=null, id_parent=null,new_title=null, x=null, y=null,width=null, height=null)=>{
+const modifySimpleBlock = (block_o, id=null, id_parent=null,new_title=null, x=null, y=null,width=null, height=null, flowio_id=null)=>{
     let block = JSON.parse(JSON.stringify(block_o))
     if (new_title!=null) block.object.$.label = block.object.$.label.formatUnicorn({title:new_title})
     if (width!=null) block.object.mxCell[0].mxGeometry[0].$.width = width
@@ -140,22 +140,29 @@ const modifySimpleBlock = (block_o, id=null, id_parent=null,new_title=null, x=nu
     if (x!=null) block.object.mxCell[0].mxGeometry[0].$.x = x
     if (y!=null) block.object.mxCell[0].mxGeometry[0].$.y = y
     if (id!=null) block.object.$.id = id
+    if (flowio_id!=null) block.object.$.flowio_id = flowio_id
     if (id_parent!=null) block.object.mxCell[0].$.parent=id_parent
     return block
 }
 const getGeoSimpleBlock = (block_o)=>{
      return {...block_o.object.mxCell[0].mxGeometry[0].$}
 }
-
+const guidGenerator = ()=>{
+  var S4 = function() {
+     return (((1+Math.random())*0x10000)|0).toString(16).substring(1);
+  };
+  return (S4()+"-"+S4()+"-"+S4()+"-"+S4());
+}
 
 //modifySimpleBlock(input[0],'id-input','parent_id', 1,2,4,5)
-const createMinimizedFunctionCell = (basics_lib_path, inputs, outputs, function_id, function_name, top_padding=10, padding_side=20)=>{
+const createMinimizedFunctionCell = (basics_lib_path, inputs, outputs, flowio_id, function_name, top_padding=10, padding_side=20)=>{
     let basics_lib = getBasics(basics_lib_path)
     let function_promise = getSimpleBlockFromLibrary(basics_lib, 'function')
     let input_promise = getSimpleBlockFromLibrary(basics_lib, 'input')
     let output_promise = getSimpleBlockFromLibrary(basics_lib, 'output')
     return Promise.all([function_promise,input_promise,output_promise]).then(function(result){
-        let real_func_id = function_id+'-function-'+Date.now()
+        let real_func_id = 'function'-guidGenerator()
+        //function_id+'-function-'+Date.now()
         let func = result[0][0]
         let geo_func = getGeoSimpleBlock(func)
         let input = result[1][0]
@@ -163,9 +170,9 @@ const createMinimizedFunctionCell = (basics_lib_path, inputs, outputs, function_
         let output = result[2][0]
         let geo_output = getGeoSimpleBlock(output)
         
-        let input_blocks = inputs.map((input_text, index)=>(modifySimpleBlock(block_o=input,id=input_text+'-input-'+Date.now(),id_parent=real_func_id, input_text, x=padding_side, y=index*(Number(geo_input.height)+top_padding)+top_padding)))
-        let output_blocks = outputs.map((output_text, index)=>(modifySimpleBlock(block_o=output,id=output_text+'-output-'+Date.now(),id_parent=real_func_id, output_text, x=geo_func.width-padding_side-geo_output.width, y=index*(Number(geo_output.height)+top_padding)+top_padding)))
-        let func_block = modifySimpleBlock(func,id=real_func_id, id_parent=ROOT_ID, function_name, x=null, y=null, width=null, height=(Number(geo_output.height)+top_padding)*Math.max(inputs.length, outputs.length)+top_padding)
+        let input_blocks = inputs.map((input_text, index)=>(modifySimpleBlock(block_o=input,id='input-'+guidGenerator(),id_parent=real_func_id, input_text, x=padding_side, y=index*(Number(geo_input.height)+top_padding)+top_padding)))
+        let output_blocks = outputs.map((output_text, index)=>(modifySimpleBlock(block_o=output,id='output-'+guidGenerator(),id_parent=real_func_id, output_text, x=geo_func.width-padding_side-geo_output.width, y=index*(Number(geo_output.height)+top_padding)+top_padding)))
+        let func_block = modifySimpleBlock(func,id=real_func_id, id_parent=ROOT_ID, function_name, x=null, y=null, width=null, height=(Number(geo_output.height)+top_padding)*Math.max(inputs.length, outputs.length)+top_padding, flowio_id=flowio_id)
         return [func_block].concat(input_blocks).concat(output_blocks)
     })
 }

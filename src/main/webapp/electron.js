@@ -22,6 +22,7 @@ const DEFAULT_QUERY = {
 	'mode': 'device',
 	'browser': 0,
 	'appcache': 1,
+	'libs':0,
 	'basics_file_path':path.join(app.getPath('userData'),'basics.xml'),
 }
 const DEFAULT_OFFLINE_QUERY = {
@@ -38,6 +39,7 @@ const DEFAULT_OFFLINE_QUERY = {
 	'mode': 'device',
 	'browser': 0,
 	'export': 'https://exp.draw.io/ImageExport4/export',
+	'libs':0,
 	'basics_file_path':path.join(app.getPath('userData'),'basics.xml')
 }
 let basics_lib = null
@@ -46,50 +48,68 @@ function loadLocalLibrary(win, key, value){
 	win.webContents.send('args-obj', {'args':{'llib':{key, value}}});
 }
 
-function importLocalLibraries(win, file_path, query){
+function importLocalLibraries(win, file_path, original_file_path, query){
 	if(fs.lstatSync(file_path).isFile()){
 		let key_lib = path.basename(file_path)
 		if (key_lib.slice(-4)=='.xml'){
-			fs.readFile(file_path,'utf8', (err, data)=>{
-				loadLocalLibrary(win, key_lib, data)
+			let result = fs.promises.readFile(file_path,'utf8').then((data)=>{
+				//loadLocalLibrary(win, key_lib, data)
+				return {'xml':{'key':key_lib, 'value':data}}
 			})
+			//console.log(result)
+			return result
 		}
 		if (key_lib.slice(-7)=='.drawio'){
-			fs.readFile(file_path,'utf8', (err, data)=>{
-				flowio.parseString(data).then((data_value)=>{
+			let file_id = fs.lstatSync(file_path).ino
+			let result = fs.promises.readFile(file_path,'utf8').then((data)=>{
+				return flowio.parseString(data).then((data_value)=>{
 						let compressed = data_value['mxfile']['diagram'][0]._;
-						flowio.parseString(flowio.decompress(compressed),{'explicitChildren':true}).then((result_decompressed)=>{
+						return flowio.parseString(flowio.decompress(compressed),{'explicitChildren':true}).then((result_decompressed)=>{
 							let inputs = flowio.getClearLabels(flowio.findChildren(result_decompressed, {'flowio_key':'input_func'}))
 							let name_func = flowio.getClearLabels(flowio.findChildren(result_decompressed, {'flowio_key':'name_func'}))[0]
 							let outputs = flowio.getClearLabels(flowio.findChildren(result_decompressed, {'flowio_key':'output_func'}))
-							console.log(inputs.length)
-							flowio.createMinimizedFunctionCell(query? query.basics_file_path:null,inputs, outputs, name_func, name_func).then((all_blocks)=>{
-								//console.log(JSON.stringify(all_blocks))
+							return flowio.createMinimizedFunctionCell(query? query.basics_file_path:null,inputs, outputs, file_id, name_func).then((all_blocks)=>{
 								let mxGraph = flowio.getDiagram(all_blocks)
-								console.log(flowio.toString(mxGraph,{headless:true}))
 								let value = flowio.compress(flowio.toString(mxGraph,{headless:true}))
-								//console.log('<mxlibrary>[{"xml":"'+value+'", "title":"title"}]</mxlibrary>')
-								loadLocalLibrary(win,'algo', '<mxlibrary>[{"xml":"'+value+'", "title":"title","w":80,"h":20,"aspect":"fixed"}]</mxlibrary>')
+								return {'drawio':{'key':name_func?name_func:file_id, 'value':value}}
 								
 							}).catch((err)=>(console.log('hey',err)))
 
 						}).catch((err)=>(console.log(err)))
 				}).catch(()=>(console.log('ei2')))
-
 			})
+			return result
 		}
 	}else if(fs.lstatSync(file_path).isDirectory()) {
-		fs.readdir(file_path,(err, files)=>{
-			files.map((file)=>importLocalLibraries(win,path.join(file_path, file),query))
+		return fs.promises.readdir(file_path).then((files)=>{
+			return Promise.all(files.map((file)=>importLocalLibraries(win,path.join(file_path, file),original_file_path,query))).then((array_of_data)=>{
+				//console.log(array_of_data)
+				let xmls = array_of_data.filter((obj)=>obj!=null&&Object.keys(obj)[0]=='xml')
+				let drawios = array_of_data.filter((obj)=>obj!=null&&Object.keys(obj)[0]=='drawio')
+				let folders = array_of_data.filter((obj)=>obj!=null&&Array.isArray(obj))
+				xmls.forEach((xml_obj)=>{
+					let key = xml_obj.xml.key
+					let value = xml_obj.xml.value
+					loadLocalLibrary(win, key, value)
+				})
+				if (drawios.length>0){
+					let all_drawios_string = drawios.map((drawio_file)=>({"xml":drawio_file.drawio.value, "title":drawio_file.drawio.key,"w":80,"h":20,"aspect":"fixed"}))
+					let value_drawios = '<mxlibrary>'+JSON.stringify(all_drawios_string)+'</mxlibrary>'
+					let title_lib = path.relative(original_file_path, file_path)?path.relative(original_file_path, file_path):'./';
+					loadLocalLibrary(win, title_lib, value_drawios)
+				}
+				//console.log(xmls.length, drawios.length, folders.length)
+				return xmls.concat(drawios).concat(folders)
+			})
 		})
 	}
 }
 
 function loadLocalLibraries (win,query){
-	if(query['llibs']){
-		if(!Array.isArray(query['llibs'])) query['llibs']=[query['llibs']]
-		query['llibs'].forEach((file_path)=>{
-			importLocalLibraries(win, file_path, query)
+	if(query['flowio_path']){
+		if(!Array.isArray(query['flowio_path'])) query['flowio_path']=[query['flowio_path']]
+		query['flowio_path'].forEach((file_path)=>{
+			importLocalLibraries(win, file_path, file_path, query)
 		})
 	}
 }
@@ -140,7 +160,7 @@ function createWindow (opt = {})
 	mainWindow.loadURL(wurl)
 
 	// Open the DevTools.
-	if (true)//
+	if (__DEV__)//
 	{
 		mainWindow.webContents.openDevTools()
 	}
