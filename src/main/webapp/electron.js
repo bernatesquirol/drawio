@@ -42,7 +42,7 @@ const DEFAULT_OFFLINE_QUERY = {
 	'libs':0,
 	'basics_file_path':path.join(app.getPath('userData'),'basics.xml')
 }
-let basics_lib = null
+
 let windowsRegistry = []
 function loadLocalLibrary(win, key, value){
 	win.webContents.send('args-obj', {'args':{'llib':{key, value}}});

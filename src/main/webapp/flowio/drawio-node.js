@@ -100,13 +100,15 @@ const toString = function(xml_obj, builder_opts={}){
     return builder.buildObject(xml_obj);
 }
 const getClearLabels = function(list_nodes){
+    if (list_nodes == null) return []
     return _.map(list_nodes, (val)=>{
         let props = getProps(val)
         let rgex = />([^><]+)</g
+        //console.log(props)
         if (props['label']){
             let result = rgex.exec(props['label'])
-            if (result.length>1)
-                return result[1]
+            if (result!=null && result.length>1) return result[1]
+            else return props['label']
         }
         return null
     }).filter((val)=>(val!=null))
