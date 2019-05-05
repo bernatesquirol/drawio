@@ -17,10 +17,23 @@ function importLocalLibraries(loadLocalLibrary, file_path, original_file_path, b
 				return drawionode.parseString(data).then((data_value)=>{
 						let compressed = data_value['mxfile']['diagram'][0]._;
 						return drawionode.parseString(drawionode.decompress(compressed),{'explicitChildren':true}).then((result_decompressed)=>{
+							let shapes = drawionode.findChildren(result_decompressed, {'flowio_key':'shape_container'})
+//							let shape = shapes.length>0?shapes[0].object.$$.mxCell[0]:null
+							let shape = null	
+							if(shapes.length>0){
+								let id_parent = shapes[0].object.$.id
+								let find_shapes = drawionode.findChildren(result_decompressed,{'parent':id_parent})
+								if(find_shapes.length>0){
+									shape = find_shapes[0].mxCell
+								}
+								//drawionode.findChildren(result_decompressed,{'parent':})
+								//let shape = shapes.length>0?drawionode.findChildren(result_decompressed,shapes[0]):null	
+							}
+							//console.log(JSON.stringify(shape, null, 2))
 							let inputs = drawionode.getClearLabels(drawionode.findChildren(result_decompressed, {'flowio_key':'input_func'}))
 							let name_func = drawionode.getClearLabels(drawionode.findChildren(result_decompressed, {'flowio_key':'name_func'}))[0]
 							let outputs = drawionode.getClearLabels(drawionode.findChildren(result_decompressed, {'flowio_key':'output_func'}))
-							return drawionode.createMinimizedFunctionCell(basics_file_path,inputs, outputs, file_id, name_func).then((all_blocks)=>{
+							return drawionode.createMinimizedFunctionCell(basics_file_path,inputs, outputs, file_id, name_func, shape).then((all_blocks)=>{
 								let mxGraph = drawionode.getDiagram(all_blocks)
 								let value = drawionode.compress(drawionode.toString(mxGraph,{headless:true}))
 								return {'drawio':{'key':name_func?name_func:file_id, 'value':value}}
