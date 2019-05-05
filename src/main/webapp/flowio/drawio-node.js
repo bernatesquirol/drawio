@@ -43,11 +43,12 @@ const bytesToString = function(a) {
 
 const getChildren = function(root){
   let values = Object.values(root)[0]
-  let children = values.$$
+  //console.log(values)
+  let children = Object.keys(values).filter((key)=>key!='$')//
   if (children==null) return null
   let real_children = []
-  Object.keys(children).forEach((nodeType)=>{
-    children[nodeType].forEach((real_child)=>{
+  children.forEach((nodeType)=>{
+    values[nodeType].forEach((real_child)=>{
       let obj = {}
       obj[nodeType]={...real_child}
       real_children.push(obj)
@@ -143,6 +144,13 @@ const formatLabel=(label, new_label)=>{
 //let input = ((await getSimpleBlockFromLibrary(basics, 'input'))[0])
 const modifySimpleBlock = (block_o, id=null, id_parent=null,new_title=null, x=null, y=null,width=null, height=null, flowio_id=null)=>{
     let block = JSON.parse(JSON.stringify(block_o))
+    if (Object.keys(block).includes('mxCell')){
+      if (!Array.isArray(block['mxCell'])){
+        block['mxCell']=[block['mxCell']]
+      }
+      block={'object':{...block,$:{}}}
+    }
+    if (!Object.keys(block).includes('object')) return block
     if (new_title!=null) block.object.$.label = formatLabel(block.object.$.label,new_title)
     if (width!=null) block.object.mxCell[0].mxGeometry[0].$.width = width
     if (height!=null) block.object.mxCell[0].mxGeometry[0].$.height = height
@@ -156,43 +164,10 @@ const modifySimpleBlock = (block_o, id=null, id_parent=null,new_title=null, x=nu
 const getGeoSimpleBlock = (block_o)=>{
      return {...block_o.object.mxCell[0].mxGeometry[0].$}
 }
-const guidGenerator = ()=>{
-  var S4 = function() {
-     return (((1+Math.random())*0x10000)|0).toString(16).substring(1);
-  };
-  return (S4()+"-"+S4()+"-"+S4()+"-"+S4());
-}
+
 
 //modifySimpleBlock(input[0],'id-input','parent_id', 1,2,4,5)
-const createMinimizedFunctionCell = (basics_lib_path, inputs, outputs, flowio_id, function_name, mxCell_func=null, top_padding=10, padding_side=20)=>{
-    let basics_lib = getBasics(basics_lib_path)
-    let function_promise = getSimpleBlockFromLibrary(basics_lib, 'function')
-    
-    let input_promise = getSimpleBlockFromLibrary(basics_lib, 'input')
-    let output_promise = getSimpleBlockFromLibrary(basics_lib, 'output')
-    return Promise.all([function_promise,input_promise,output_promise]).then(function(result){
-        
-        let real_func_id = 'function'-guidGenerator()
-        //function_id+'-function-'+Date.now()
-        let func = result[0][0]
-        let geo_func = getGeoSimpleBlock(func)
-        let input = result[1][0]
-        let geo_input = getGeoSimpleBlock(input)
-        let output = result[2][0]
-        let geo_output = getGeoSimpleBlock(output)
-        //console.log(func)
-        let input_blocks = inputs.map((input_text, index)=>(modifySimpleBlock(block_o=input,id='input-'+guidGenerator(),id_parent=real_func_id, input_text, x=padding_side, y=index*(Number(geo_input.height)+top_padding)+top_padding)))
-        let output_blocks = outputs.map((output_text, index)=>(modifySimpleBlock(block_o=output,id='output-'+guidGenerator(),id_parent=real_func_id, output_text, x=2*padding_side+Number(geo_input.width), y=index*(Number(geo_output.height)+top_padding)+top_padding)))
-        if(mxCell_func){
-          //console.log(JSON.stringify(func.object.mxCell,null,2))
-          //console.log(JSON.stringify(explicitChildrenToNot(mxCell_func),null,2))
-          func.object.mxCell[0].$.style=mxCell_func.$.style
-        }
-        //console.log(geo_func.width,geo_input.width, geo_output.width)
-        let func_block = modifySimpleBlock(func,id=real_func_id, id_parent=ROOT_ID, function_name, x=null, y=null, width=Number(geo_output.width)+Number(geo_input.width)+3*padding_side, height=(Number(geo_output.height)+top_padding)*Math.max(inputs.length, outputs.length)+top_padding, flowio_id=flowio_id)
-        return [func_block].concat(input_blocks).concat(output_blocks)
-    })
-}
+
 const explicitChildrenToNot=(obj)=>{
   let new_obj = {$:obj.$}
   if (obj.$$!=null){
@@ -220,14 +195,12 @@ const openDiagram = (path, opts={})=>{
   })  
 }
 
-const getDiagram = (array_obj)=>{
-  return {'mxGraphModel':{'root':[{...groupBy_values(array_obj, Object.keys),'mxCell':[{$: {id: "0"}},{$: {id: ROOT_ID, parent: "0"}}]}]}}
+const getDiagram = (array_obj, root_id)=>{
+  return {'mxGraphModel':{'root':[{...groupBy_values(array_obj, Object.keys),'mxCell':[{$: {id: "0"}},{$: {id: root_id, parent: "0"}}]}]}}
 
 }
 
-const getBasics = (basics_file_path)=>{
-  return fs.existsSync(basics_file_path)?fs.readFileSync(basics_file_path):basics
-}
+
 module.exports={
   //encode: encode,
   //decode: decode,
@@ -238,13 +211,12 @@ module.exports={
   getSimpleBlockFromLibrary: getSimpleBlockFromLibrary,
   getClearLabels:getClearLabels,
   modifySimpleBlock:modifySimpleBlock,
-  createMinimizedFunctionCell:createMinimizedFunctionCell,
   findChildren:findChildren,
   getDiagram:getDiagram,
-  getBasics:getBasics,
-  explicitChildrenToNot:explicitChildrenToNot
+  explicitChildrenToNot:explicitChildrenToNot,
+  getGeoSimpleBlock:getGeoSimpleBlock
 }
-const basics = '<mxlibrary>[{"xml":"dVJNc4IwEP01HO1AouC1QvXSnjz02ImwSGpgaQgF++u7CUF0pj0w7Mt7efuRDXhajwct2uoNC1ABfwl4qhHNFNVjCkoFLJRFwLOAsZC+gO3/YSPHhq3Q0Jg/LuDpE3JDCiVONlnmyFiRdldiY5nOXBU4Jv7qcSZWnfyh02cSRKwdF5Kis/snOyMN3Uyy2ZCyTp5e4UorFQ4SPy5wnbLLpu3NRM1NMAsf+1uKYhr7pgArDcl0qKSBYytyyw40RjqrTG1bi3zpe1FLZbO99rksBLml2HRo/Rx/dJ1l0ZawUPLcEMhpfKDpoDMaL5CiQu3S8yI+xZv4xrzLwlRzMqnUnbIsS5bnt8a/QRsY/32m6K7pA2ANRl9J4i+wJ5bwhMfJZr3mjLMwhlXEJ5fBl0BoOz12WIE8V97YL0Aougmfb+bLWlDgRz1DvygzXBbSSR/29Rc=","w":80,"h":20,"aspect":"fixed","title":"input"},{"xml":"dVJNb4MwDP01OU4KQYPuuMLay3bqYccpBReyBsxCGHS/fk4IpZU2pAjb7/nbLM6aaW9kV79hCZrFLyzODKKdpWbKQGsmuCpZnDMhOD0mdv+gkUd5Jw209g8HPH5CYYmh5dElyz2YaOJuT9g6pLcXDR5JvgZcgIde/ZD1mQiR6KYVJKny/3RrlSXPNF8CUtY5ZmD40k4aR4UfZ7jM2XGw3WBnbOlCOPW+wbUqYXBoS3BUTlHHWlk4dLJw6EhzJFttG9dbFGrfyUZpl+51KFQpKVqGbY8unscPvrU82gQ9Q43G54q5/8gutapashU0VyBw21uDZ7ihPiVpLJMr8q5KWy9FKK1vmBCVj5BeJ/INxsL07/6im2HsARuw5kKUMcQndDOvmNegqjp4hbVz2c96dfVcj4GEMN9FDeexqOsZeurdlf4C","w":80,"h":20,"aspect":"fixed","title":"output"},{"xml":"dVNLU4NADP41HHXobgv1aFsfB51x9ODR2UIKqwvBJbWtv94ElhademBI8uX5JRvpZbW/86YpHzEHF+mbSC89IvVStV+Cc5GKbR7pVaRUzF+kbv9BJx0aN8ZDTWcCcP0OGbGHM2spturAxLHvYoO1IC0dHHRI8rmVNhbO1nBRgi1K1q7ZZcY5ZyecpaL7pwuyxMHpasjJhfu0waPrbuNwZ/HtAw59A5ttnZHFukeHUZSov6c8taa+wJPNjHuQOZ6wtV0CvVojEVZcanC4drYQgLBha0mVTD1hsSWPH/BqcyoHS2kaSd94zKBt2bIrLcFLYzIx73hJbPO4rXPIhxj7LVh8GSeJnqirq1RP0+k8Fsz47KWHE6HXOrdEh74bQOczmOfTYx8jZK7WOpGIjJkzzL0PtYTJW1NZJ7zdg/sCmfBIq0wM+3/vYDLi8w6wAvIHdtkFAoTxpL+VeNi1GNNgM22vF8fQY7ZnPilTF7waFYf6WoewsGI1Dfqo3PxMNfWnmnEEvjYEC2G9HZ8yC6NBTqbuVgY13Pugnt5VHz1+dj8=","w":260,"h":70,"aspect":"fixed","title":"function"}]</mxlibrary>'
+
 /*
 
 let final_func = await createMinimizedFunctionCell(['a1','a2','a3'],['b1','b2'],'function_id')
