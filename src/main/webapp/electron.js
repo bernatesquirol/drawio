@@ -23,7 +23,8 @@ const DEFAULT_QUERY = {
 	'browser': 0,
 	'appcache': 1,
 	'libs':0,
-	'basics_file_path':path.join(app.getPath('userData'),'basics.xml'),
+	//'basics_file_path':path.join(app.getPath('userData'),'basics.xml'),
+	'flowio_path':''
 }
 const DEFAULT_OFFLINE_QUERY = {
 	'dev': __DEV__ ? 1 : 0,
@@ -40,7 +41,8 @@ const DEFAULT_OFFLINE_QUERY = {
 	'browser': 0,
 	'export': 'https://exp.draw.io/ImageExport4/export',
 	'libs':0,
-	'basics_file_path':path.join(app.getPath('userData'),'basics.xml')
+	'flowio_path':''
+	//'basics_file_path':path.join(app.getPath('userData'),'basics.xml')
 }
 
 let windowsRegistry = []
@@ -49,13 +51,13 @@ function loadLocalLibrary(win, key, value){
 }
 
 function loadLocalLibraries (win,query){
+	let importlocallib=(key, value)=>loadLocalLibrary(win, key, value)
+	flowio.importLibraryFlowio(importlocallib)
 	if(query['flowio_path']){
 		if(!Array.isArray(query['flowio_path'])) query['flowio_path']=[query['flowio_path']]
 		query['flowio_path'].forEach((file_path)=>{
-			let importlocallib=(key, value)=>loadLocalLibrary(win, key, value)
 
-			flowio.importLocalLibraries(importlocallib, file_path, file_path, query.basics_file_path)
-			flowio.importLibraryFlowio(importlocallib)
+			flowio.importLocalLibraries(importlocallib, file_path, file_path, null)
 		})
 	}
 }
