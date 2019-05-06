@@ -52,7 +52,10 @@ function loadLocalLibraries (win,query){
 	if(query['flowio_path']){
 		if(!Array.isArray(query['flowio_path'])) query['flowio_path']=[query['flowio_path']]
 		query['flowio_path'].forEach((file_path)=>{
-			flowio.importLocalLibraries((key, value)=>loadLocalLibrary(win, key, value), file_path, file_path, query.basics_file_path)
+			let importlocallib=(key, value)=>loadLocalLibrary(win, key, value)
+
+			flowio.importLocalLibraries(importlocallib, file_path, file_path, query.basics_file_path)
+			flowio.importLibraryFlowio(importlocallib)
 		})
 	}
 }
@@ -240,6 +243,13 @@ app.on('ready', e =>
 	      {
 	        type: 'separator'
 	      },
+				{
+	        label: 'flowio...',
+	        click() { shell.openItem(app.getPath('userData')); }
+	      },
+				{
+				 type: 'separator'
+			 	},
 	      {
 	        label: 'Quit',
 	        accelerator: 'CmdOrCtrl+Q',
