@@ -56,8 +56,8 @@ function loadLocalLibraries (win,query){
 	if(query['flowio_path']){
 		if(!Array.isArray(query['flowio_path'])) query['flowio_path']=[query['flowio_path']]
 		query['flowio_path'].forEach((file_path)=>{
-
 			flowio.importLocalLibraries(importlocallib, file_path, file_path, null)
+			flowio.createFileIndex(file_path)
 		})
 	}
 }
