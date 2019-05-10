@@ -108,8 +108,9 @@ function importLocalLibraries(loadLocalLibrary, file_path, original_file_path, b
 								xml_data = importFunction(result_decompressed,file_id,basics_file_path)
 							}else if (drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'type_study'}).length>0){
 								xml_data = importBlock(result_decompressed, file_id, 'study')
-								let id = drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'database_modified'})[0].id
-								console.log(drawionode.findRelated(result_decompressed, id))
+								let id = drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'database_modified'})[0].object.$.id
+								console.log(id)
+								//console.log(JSON.stringify(drawionode.findRelated(result_decompressed, id)[0], null, 2))
 							}else if (drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'type_database'}).length>0){
 								xml_data = importBlock(result_decompressed, file_id, 'database')
 							}

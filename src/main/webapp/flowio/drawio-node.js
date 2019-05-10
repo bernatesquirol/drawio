@@ -80,9 +80,9 @@ const findChildren = function(root, filter_func){
   return return_value
 }
 const findRelated=(xml_obj, id_related, all_related=[], already_seen={})=>{
-  console.log('id',id_related)
+  /*console.log('id',id_related)
   console.log('all',all_related)
-  console.log('seen',already_seen)
+  console.log('seen',already_seen)*/
   if (id_related==null || already_seen[id_related]) return [all_related, already_seen]
   let new_already_seen = {...already_seen}
   let new_all_related = [...all_related]
@@ -94,7 +94,7 @@ const findRelated=(xml_obj, id_related, all_related=[], already_seen={})=>{
   new_already_seen[id_related]=true
   let sons_and_connected = findChildren(xml_obj, filter_related(id_related))
   //console.log(getProps(xml_obj),filter_related(id_related)(gtProps(xml_obj)))
-  console.log(sons_and_connected)
+  //console.log(sons_and_connected)
   let id_to_search = sons_and_connected.map((item_dic)=>{
     let item = Object.values(item_dic)[0]
     if(item.$.target==id_related){
@@ -120,10 +120,11 @@ const findRelated=(xml_obj, id_related, all_related=[], already_seen={})=>{
 
   let recursive_step = id_to_search.forEach((id_item)=>{
     let result = findRelated(xml_obj, id_item, new_all_related, new_already_seen)
+    //console.log('result', result)
     new_all_related = result[0].flat()
     new_already_seen = result[1]
   })
-  return new_all_related, new_already_seen
+  return [new_all_related, new_already_seen]
 }
 const findChildrenValueFilter = function(root, obj_filter){
   return findChildren(root, (props)=>_.reduce(obj_filter,(result, value, key) =>
