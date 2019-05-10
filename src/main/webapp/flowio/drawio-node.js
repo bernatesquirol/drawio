@@ -69,9 +69,8 @@ const findChildren = function(root, filter_func){
   if (root==null) return null
   let props = getProps(root)
   if (props!=null){
-    console.log(filter_func(props))
     if (filter_func==null | filter_func(props)) {
-      return root
+      return [root]
     }
   }
   let children = getChildren(root)
@@ -80,7 +79,52 @@ const findChildren = function(root, filter_func){
   let return_value = _.flatMap(children,(child)=>findChildren(child,filter_func)).filter((child)=>child!=null)
   return return_value
 }
+const findRelated=(xml_obj, id_related, all_related=[], already_seen={})=>{
+  console.log('id',id_related)
+  console.log('all',all_related)
+  console.log('seen',already_seen)
+  if (id_related==null || already_seen[id_related]) return [all_related, already_seen]
+  let new_already_seen = {...already_seen}
+  let new_all_related = [...all_related]
+  let filter_related = (id_to_find)=>{
+    return function(props){
+      return props.parent==id_to_find || props.target==id_to_find || props.source==id_to_find
+    }
+  }
+  new_already_seen[id_related]=true
+  let sons_and_connected = findChildren(xml_obj, filter_related(id_related))
+  //console.log(getProps(xml_obj),filter_related(id_related)(gtProps(xml_obj)))
+  console.log(sons_and_connected)
+  let id_to_search = sons_and_connected.map((item_dic)=>{
+    let item = Object.values(item_dic)[0]
+    if(item.$.target==id_related){
+      return [item.$.id, item.$.source] //afegim edge i busquem l'altre punta
+    }else if(item.$.source==id_related){
+      return [item.$.id, item.$.target] //afegim edge i busquem l'altre punta
+    }
+    return item.$.id //afegim fill i busquem dins
+  }).flat()
+  let him_list = findChildrenValueFilter(xml_obj, {'id':id_related})//[0]
+  //if xml_obj.$.parent
+  if (him_list && him_list.length>0){
+    new_all_related.push(him_list[0])
+    let him = Object.values(him_list[0])[0]
+    let parents = findChildrenValueFilter(xml_obj, {'id':him.$.parent})
+    if(parents && parents.length>0){
+      let parent = Object.values(parents)[0]
+      if(Object.keys(parent).includes('flowio_key') && parent.$.id!=null){
+        id_to_search.push(parent.$.id)
+      }
+    }
+  }
 
+  let recursive_step = id_to_search.forEach((id_item)=>{
+    let result = findRelated(xml_obj, id_item, new_all_related, new_already_seen)
+    new_all_related = result[0].flat()
+    new_already_seen = result[1]
+  })
+  return new_all_related, new_already_seen
+}
 const findChildrenValueFilter = function(root, obj_filter){
   return findChildren(root, (props)=>_.reduce(obj_filter,(result, value, key) =>
   (result && props[key]==value),true))
@@ -196,7 +240,7 @@ const openDiagram = (path, opts={})=>{
       let compressed = data_value['mxfile']['diagram'][0]._;
       return drawionode.parseString(drawionode.decompress(compressed),opts)
     })
-  })  
+  })
 }
 
 const getDiagram = (array_obj, root_id)=>{
@@ -204,42 +248,7 @@ const getDiagram = (array_obj, root_id)=>{
 
 }
 
-const findRelated=(xml_obj, id_related, already_seen={})=>{
-  if (already_seen[id_related]==true) return [null,already_seen]
-  let new_already_seen = {...already_seen}
-  let filter_related = (id_to_find)=>{
-    return (props)=>{
-      return props.parent==id_to_find || props.target==id_to_find || props.source==id_to_find
-    }
-  }
-  new_already_seen[id_related]=true
-  let sons_and_connected = findChildren(xml_obj, filter_related(id_related))
-  console.log(sons_and_connected)
-  let id_to_search = sons_and_connected.map((item)=>{
-    if(item.$.target==id_related){
-      return item.$.source //afegim edge i busquem l'altre punta
-    }else if(item.$.source==id_related){
-      return item.$.target //afegim edge i busquem l'altre punta
-    }
-    return item.$.id //afegim fill i busquem dins
-  })
-  let him = findChildrenValueFilter(xml_obj, {'id':id_related})  
-  //if xml_obj.$.parent
-  if (him.$.parent){
-    let parent = findChildrenValueFilter(xml_obj, {'id':him.$.parent})  
-    if(Object.keys(parent.$).includes('flowio_key') && parent.id){
-      id_to_search.push(parent.id)
-    }
-  }
 
-  let recursive_step = id_to_search.map((id_item)=>{
-    let result = findRelated(xml_obj, id_item, new_already_seen)
-    let list_of_all = result[0]
-    new_already_seen = result[1]
-    return list_of_all
-  }).flat()
-  return recursive_step, new_already_seen
-}
 
 module.exports={
   //encode: encode,
