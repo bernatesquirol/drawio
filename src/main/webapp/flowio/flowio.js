@@ -109,8 +109,14 @@ function importLocalLibraries(loadLocalLibrary, file_path, original_file_path, b
 							}else if (drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'type_study'}).length>0){
 								xml_data = importBlock(result_decompressed, file_id, 'study')
 								let id = drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'database_modified'})[0].object.$.id
-								console.log(id)
-								//console.log(JSON.stringify(drawionode.findRelated(result_decompressed, id)[0], null, 2))
+								/*console.log(id)
+
+                //importBlock(drawionode.findRelated(result_decompressed, id), 'tal', 'study')
+                /*xml_data.then((data)=>{
+                  console.log(JSON.stringify(data))
+                })*/
+                console.log(JSON.stringify(drawionode.findRelated(result_decompressed, id)[0], null, 2))
+                //xml_data = Promise.resolve([drawionode.findRelated(result_decompressed, id)[0],'hola'])
 							}else if (drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'type_database'}).length>0){
 								xml_data = importBlock(result_decompressed, file_id, 'database')
 							}

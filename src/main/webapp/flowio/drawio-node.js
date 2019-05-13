@@ -43,11 +43,14 @@ const bytesToString = function(a) {
 
 const getChildren = function(root){
   let values = Object.values(root)[0]
-  //console.log(values)
   let children = Object.keys(values).filter((key)=>key!='$')//
   if (children==null) return null
   let real_children = []
   children.forEach((nodeType)=>{
+    if(!Array.isArray(values[nodeType])){
+      console.log(root)
+      console.log(Object.values(root),values[nodeType])
+    }
     values[nodeType].forEach((real_child)=>{
       let obj = {}
       obj[nodeType]={...real_child}
@@ -91,6 +94,7 @@ const findRelated=(xml_obj, id_related, all_related=[], already_seen={})=>{
       return props.parent==id_to_find || props.target==id_to_find || props.source==id_to_find
     }
   }
+  //G7s1vNpVQt0JP-xVj_gy-33
   new_already_seen[id_related]=true
   let sons_and_connected = findChildren(xml_obj, filter_related(id_related))
   //console.log(getProps(xml_obj),filter_related(id_related)(gtProps(xml_obj)))
@@ -105,15 +109,28 @@ const findRelated=(xml_obj, id_related, all_related=[], already_seen={})=>{
     return item.$.id //afegim fill i busquem dins
   }).flat()
   let him_list = findChildrenValueFilter(xml_obj, {'id':id_related})//[0]
+  let him_id = Object.values(him_list[0])[0].$.parent
+  let children = [...getChildren(him_list[0]).map((val)=>{
+    console.log(Object.values(val)[0].$)
+    return val.$.parent
+  }),him_id]//.filter((val)=>val!=null)
+  console.log(children)
+  //let ids_children = children.p.map()
+
   //if xml_obj.$.parent
   if (him_list && him_list.length>0){
     new_all_related.push(him_list[0])
-    let him = Object.values(him_list[0])[0]
-    let parents = findChildrenValueFilter(xml_obj, {'id':him.$.parent})
-    if(parents && parents.length>0){
-      let parent = Object.values(parents)[0]
-      if(Object.keys(parent).includes('flowio_key') && parent.$.id!=null){
-        id_to_search.push(parent.$.id)
+
+
+    console.log('child', id_related,JSON.stringify(getChildren(him_list[0]),null,1))
+    if ( him.$.parent&&him.$.parent.length>1){
+      let parents = findChildrenValueFilter(xml_obj, {'id':him.$.parent})
+      console.log('found!!', id_related, him.$.parent,JSON.stringify(parents,null,0))
+      if(parents && parents.length>0){
+        let parent = Object.values(parents)[0]
+        if(Object.keys(parent).includes('flowio_key') && parent.$.id!=null){
+          id_to_search.push(parent.$.id)
+        }
       }
     }
   }
@@ -126,7 +143,7 @@ const findRelated=(xml_obj, id_related, all_related=[], already_seen={})=>{
   })
   return [new_all_related, new_already_seen]
 }
-const findChildrenValueFilter = function(root, obj_filter){
+const findChildrenValueFilter = function(root, obj_filter={}){
   return findChildren(root, (props)=>_.reduce(obj_filter,(result, value, key) =>
   (result && props[key]==value),true))
 }
