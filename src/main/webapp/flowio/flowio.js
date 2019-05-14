@@ -115,6 +115,7 @@ function importLocalLibraries(loadLocalLibrary, file_path, original_file_path, b
 		}
 		if (key_lib.slice(-7)=='.drawio'){
 			let file_id = fs.lstatSync(file_path).ino
+			//console.log(file_id, file_path)
 			let result = readDiagram(file_path).then((result_decompressed)=>{
 				let xml_data = null
 				if (isFunction(result_decompressed)){
@@ -240,14 +241,78 @@ const getCollapsibleFromMxCell = (result_decompressed,width_big=null,height_big=
 		return data[0]
 	})
 }
+const extractLogicFromFunction=(index, file_id)=>{
+	return readDiagram(index[file_id]).then((result_decompressed)=>{
+		let input_ids = {}
+		let output_ids = {}
+		let new_id_parent = guidGenerator()
+		if (!isFunction(result_decompressed)) return [{},[],{}]
+		let input_cells = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'input_func'}).map((item)=>{
+			item.object.mxCell[0].$.parent = new_id_parent
+			return item
+		})
+		let output_cells = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'output_func'}).map((item)=>{
+			item.object.mxCell[0].$.parent = new_id_parent
+			return item
+		})
+		input_ids = input_cells.reduce((obj,item)=>{
+			obj[drawionode.clearText(item.object.$.label)]=item.object.$.id
+			return obj
+		},{})
+		output_ids = output_cells.reduce((obj,item)=>{			
+			obj[drawionode.clearText(item.object.$.label)]=item.object.$.id
+			return obj
+		},{})
+		let function_cells = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'function'})
+		return Promise.all(function_cells.map((func)=>{
+			return Promise.all([Promise.resolve(func),extractLogicFromFunction(index,func.object.$.flowio_id)])
+		})).then((all_funcs)=>{
+			all_funcs.map((func)=>{
+				let cell_small = func[0]
+				let logic_func = func[1]
+				let input_func = logic_func[0]
+				let output_func = logic_func[2]
+				let input_cells_small = drawionode.findChildrenValueFilter(cell_small,{'flowio_key':'input'})
+				let output_cells_small = drawionode.findChildrenValueFilter(cell_small,{'flowio_key':'output'})
+				let input_small_to_big = input_cells_small.reduce((obj,item)=>{
+					obj[item.object.$.id]=input_func[drawionode.clearText(item.object.$.label)]
+					return obj
+				},{})
+				let output_small_to_big =  output_cells_small.reduce((obj,item)=>{
+					obj[item.object.$.id]=output_func[drawionode.clearText(item.object.$.label)]
+					obj[drawionode.clearText(item.object.$.label)]=item.object.$.id
+					return obj
+				},{})
+				console.log(input_small_to_big,output_small_to_big)
+			})
+			//console.log('all_funcs')
+			//console.log(all_funcs)
+			return [input_ids,[],output_ids]
+		})
+		
+		//let all_keys = [{'flowio_key':'function'}]//{'flowio_key':'hardcoded'}
+		
+		//return drawionode.findAllAndEdges(result_decompressed,all_keys)
+	})
+}
+/*const changeParent=(xml_obj, new_id_parent)=>{
+	let new_xml_obj = {...xml_obj}
+	Object.keys(xml_obj).forEach((key)=>{
+		if (Array.isArray(new_xml_obj[key])) {
+			new_xml_obj[key]
+		}
+		
+		if(new_xml_obj[key].$.parent){
+			new_xml_obj[key].$.parent=new_id_parent
+		}
 
+	})
+
+}*/
 const extractLogicFromFile=(index,file_id)=>{
 	if (!index[file_id]) return 
 	return readDiagram(index[file_id]).then((result_decompressed)=>{
-		if (isFunction(result_decompressed)){
-			let all_keys = [{'flowio_key':'hardcoded'},{'flowio_key':'function'},{'flowio_key':'output_func'},{'flowio_key':'input_func'},{'flowio_key':'input'},{'flowio_key':'output'}]
-			return drawionode.findAllAndEdges(result_decompressed,all_keys)
-		} else if (isStudy(result_decompressed)){
+		if (isStudy(result_decompressed)){
 			let all_keys = [{'flowio_key':'hardcoded'},{'flowio_key':'function'},{'flowio_key':'database'},{'flowio_key':'database_modified'},{'flowio_key':'input'},{'flowio_key':'output'}]			
 			let all_and_edges = drawionode.findAllAndEdges(result_decompressed,all_keys)
 			//let collapsible = getCollapsibleFromMxCell(result_decompressed)
@@ -270,7 +335,8 @@ module.exports={
 		importLibraryFlowio:importLibraryFlowio,
     createFileIndex:createFileIndex,
 		getFileIndex:getFileIndex,
-		extractLogicFromFile:extractLogicFromFile
+		extractLogicFromFile:extractLogicFromFile,
+		extractLogicFromFunction:extractLogicFromFunction
 }
 const basics = '<mxlibrary>[{"xml":"dVJNc4IwEP01HO1AouC1QvXSnjz02ImwSGpgaQgF++u7CUF0pj0w7Mt7efuRDXhajwct2uoNC1ABfwl4qhHNFNVjCkoFLJRFwLOAsZC+gO3/YSPHhq3Q0Jg/LuDpE3JDCiVONlnmyFiRdldiY5nOXBU4Jv7qcSZWnfyh02cSRKwdF5Kis/snOyMN3Uyy2ZCyTp5e4UorFQ4SPy5wnbLLpu3NRM1NMAsf+1uKYhr7pgArDcl0qKSBYytyyw40RjqrTG1bi3zpe1FLZbO99rksBLml2HRo/Rx/dJ1l0ZawUPLcEMhpfKDpoDMaL5CiQu3S8yI+xZv4xrzLwlRzMqnUnbIsS5bnt8a/QRsY/32m6K7pA2ANRl9J4i+wJ5bwhMfJZr3mjLMwhlXEJ5fBl0BoOz12WIE8V97YL0Aougmfb+bLWlDgRz1DvygzXBbSSR/29Rc=","w":80,"h":20,"aspect":"fixed","title":"input"},{"xml":"dVJNb4MwDP01OU4KQYPuuMLay3bqYccpBReyBsxCGHS/fk4IpZU2pAjb7/nbLM6aaW9kV79hCZrFLyzODKKdpWbKQGsmuCpZnDMhOD0mdv+gkUd5Jw209g8HPH5CYYmh5dElyz2YaOJuT9g6pLcXDR5JvgZcgIde/ZD1mQiR6KYVJKny/3RrlSXPNF8CUtY5ZmD40k4aR4UfZ7jM2XGw3WBnbOlCOPW+wbUqYXBoS3BUTlHHWlk4dLJw6EhzJFttG9dbFGrfyUZpl+51KFQpKVqGbY8unscPvrU82gQ9Q43G54q5/8gutapashU0VyBw21uDZ7ihPiVpLJMr8q5KWy9FKK1vmBCVj5BeJ/INxsL07/6im2HsARuw5kKUMcQndDOvmNegqjp4hbVz2c96dfVcj4GEMN9FDeexqOsZeurdlf4C","w":80,"h":20,"aspect":"fixed","title":"output"},{"xml":"dVNLU4NADP41HHXobgv1aFsfB51x9ODR2UIKqwvBJbWtv94ElhademBI8uX5JRvpZbW/86YpHzEHF+mbSC89IvVStV+Cc5GKbR7pVaRUzF+kbv9BJx0aN8ZDTWcCcP0OGbGHM2spturAxLHvYoO1IC0dHHRI8rmVNhbO1nBRgi1K1q7ZZcY5ZyecpaL7pwuyxMHpasjJhfu0waPrbuNwZ/HtAw59A5ttnZHFukeHUZSov6c8taa+wJPNjHuQOZ6wtV0CvVojEVZcanC4drYQgLBha0mVTD1hsSWPH/BqcyoHS2kaSd94zKBt2bIrLcFLYzIx73hJbPO4rXPIhxj7LVh8GSeJnqirq1RP0+k8Fsz47KWHE6HXOrdEh74bQOczmOfTYx8jZK7WOpGIjJkzzL0PtYTJW1NZJ7zdg/sCmfBIq0wM+3/vYDLi8w6wAvIHdtkFAoTxpL+VeNi1GNNgM22vF8fQY7ZnPilTF7waFYf6WoewsGI1Dfqo3PxMNfWnmnEEvjYEC2G9HZ8yC6NBTqbuVgY13Pugnt5VHz1+dj8=","w":260,"h":70,"aspect":"fixed","title":"function"},{"xml":"dVNNU4MwEP01uTqQtECPlmovOuPYg0cnwBZiA8uEVVp/vQmBlqo9MJPd995+w0RaH7dGttUzFqCZeGAiNYjkX/UxBa0ZD1TBxIZxHtiP8ccbaDigQSsNNPSPALMPyMkytMxcMkdg8ZoUaWDxxqv3GnuF7wc4eUKOWsu2U5nlDIQpG3fmdSEdnSxrQL/AkMqlfnKpXrBTpLCxUIZEWDOxngj3WpUOIGytt6LaFRbaZ0cGD/CmCqqshztPJVsXvjWYQ9dZT18pgl0rc+fu7Rytz+BnU0AxRVHfDgvuwjjhYrWIo1XExZKL2ILS5DuPR9bKsSGpGjCjdK+0TlGjGToSxRKSYnEubIYkPBORi+AH5DqD49VKxiHC7UWFs2luAWsgc7KUfmzfMXjsZRWoshplkV9wIDtvl2fpOdqr3blsSre+YKyKB8LLxh0nY5RZNh4Gf7OtfmWTmsA0kmDtZt7Nb80+Zo1cXMOlTOZ4kJN5OXyvnv8XPw==","w":127,"h":60,"aspect":"fixed","title":"grouped"}]</mxlibrary>'
 const flowio_lib = '<mxlibrary>[{"xml":"dVFBcoMwDHyN74CTJr2WNDn1lAd0jBHYjUGMUQr09ZUxNMlMc/CMVrtrrWUh82Y8edWZDyzBCfkuZO4RKVbNmINzIktsKeRBZFnCR2THJ2w6s0mnPLT0jwGLL9DECqeKMCwIevK2raOxcjhY/LzAFDmjfKk5VxnpdUwW4GOCniYHkfV4bYNFHhIh3wZjCc6d0oEd+KHcM9SE4SmXlXUuR4d+9spqr0Fr7nMqvMAdU+y3m224sMKWzvYnXJe+MI7RvsETjE+3kN4lPgE2QH5iyWBLMosieY02A7Y2i22ziz3VR1z/WW875WLZwgqXLa/w9puz9OGzfwE=","w":109,"h":47,"aspect":"fixed","title":"hardcoded block"},{"xml":"7VlNc6M4EP01rj0lBQj8cYztZPaQ2Z3abNUeUzLIoEQgR4g4nl+/3SCMAZnYG2dmD0M+jLolIfV7PLXkEVmkb18U3SRfZcTEiNyOyEJJqau79G3BhBh5Do9GZDnyPAf+Rt7dEa9bep0NVSzTlgZy9cRCDTUEXeHDlqVzLKDufC0z9OR6J1jpGb8UsnZc5fw7WG+ggudv3hon3MX4mcm07gieVvVVeaohrYXccvn4zHbVUzOasspTj93DYntazVg8JYssYljVgT63CdfsYUND9G4hemBLdIozcnHEXIiFFFKVbcnKjaI1Nsu1ks/swOM6EzJj+0G+MqXZ29FQugcj/MJkyrTaQZW6waQKtbPlkU4q22RqbAnjcWK6GRsbzatyvO+qAQpuTBTqooHuKIyq0CzHXtFc3vGU6hjvbPHfJFLLR8Gz57wNAxmEId/yVNCMGVo8GA8GN0y4iO7pThY4z1zT8LkuzROp+HeoT2uEwK30Q8mpJSF9yNYB/rRaPmCP5lmKIR+/1di4HdNX+taqeE9zXY9SCkE3OV+V48aGKVUxz+ZSa6BwVanHk3F5mUkf2KurDkY1HRfrIZN4SMWN4HEGxpRHkbgQ0YLAEMhAOZ32eOc7Ft5NPoV3o2B+DdUAoOunTTwKlkN821AYYYtu/iDdIEjahodTXh3aZLLkJTUhF2yth5DIQT54Ft+X1ZZ+Y/nLhAxNEprjVKCYQEOWIaekppqu9sTfSJ7pMqbBHH4hygvnOigjsYCy25ThF6sroFAGc6K8BJwBO7cs1316Oc5sdnfXeddwWBHNk1IM3Q73/FMpRuwUM2gRchqlyOQzKBWxPFR8E3IJ9oih8zeITxFxfNRLMVqQ0c0Rnpm2msusTbTggsvLMRE4omHDcnIoGx9Rh1oNghPVYPxR6HrZh+nxlYqCtXOLxG2ygVa2Ee6D0iQU9dt9YLJkJbB0sat6QpiXuNgk6Gcmt/lLwVJcFsFCU8Sy+l89vkgzXCOPpC578+EMPKtIHRDkLL0yqgOGoCn9LWGEyyvvGBvtunTI4UGJOKYztXaGQDamUKyY4kALph72o3RN59+oBntWWjzH/6xFr1Ykx7/uM3vmXya/sqnQnVQla2DYOUfJmYMoOinP+BomGVG7/uQJ3bDHEDMWIKhqa9Dk1NzqAlkCcdpZgjvph494lvC5zofzhJ4yTC3K0HmLysAh9aiKTpPgO5pygbP7nYlXhszrMN2zMfr4HqDy/GPC4w3sIxp4q9GcBNdkEC63Axfpo+Xa0LoQ2TuyvK7i3ojpQhaKI52dP9i2r7F6h9jd4Bq9O2sbiA0fTbPDN2U2vFonMl0V+dkbwTWNZpF1RabMd4l3mTfP6+8DLwXde++Z6/TeKxbFrE4dIfNMZCwzKm4ba2fdaOrcy3IRwjg+Ma135rWihZbtKFfPxAe1IpYDZ8LaZGyw7YtZHUXv5MgqJqjmr+3+P0x5a/6IqT3NO2cT7uG4LMpda9cOspKolJl3iLmqYn6/2htgcxuXSPxZaMxtjjJ4QkMbg1f+OHBOTv/f2WHO2lo0s629Ywulp5+zxRxE6jGVESzJQOA2ZMPnST8OMqg2jYgNMo/4fhBdBrIp+XmY9WWI9Nb7JtM2OzpMrTL5ih/Lfk79GedM3tiegP+UI6ZLZHhT53p2cAVBiwGBM2u5+6dEZpntpn/+2XzoE8C3EcDtwWw93zGwnH+0o3G9+l+e65yG9vCZTL29fg9A7/yNfR+/wIZfP2n/hd/p+AXeD8SvfxQD+JFf+H0Av8mJAvof8INi85Vf6Wt9I/gv","w":950.0000000000002,"h":614.0000000000003,"aspect":"fixed","title":"study"},{"xml":"7ZhLc+I4EMc/jY9J2fIDOAbYzB4yu1ObrdpjStgCayNLHlkOMJ9+W7L8woJhBmpP45CK1Xq41b9/txy8cFUcPklc5p9FRpgX/uaFKymEau6Kw4ow5iGfZl649hDy4ddDz2d6A9Prl1gSrhwTxOZfkioYwfBGP2xtOhMGY5dbwXXPFqfEdCRfa+3FciVqSYmErj/IvjfD3U7/VccSxj9lWOENrki7GjyyWbAZ1fi1ZWJPxds7OTaP1nPf+plosBOkm+NNVurIGteQzEWxqStYeJ9TRV7Lxuk9xBFsuSr03gK9KcrYSjAhzbxwi7NFFoO9UlK8k0EPJlEQos7TDyIVOZwNajDw7hMRBVHyCEPsBOQ/IjRDKA6SWRT4s3mzwJ5mKrfzLRY/J3SX20UTa8NV0951C/cA4cbGo21apNfi7YPYgtQdDxX9pinCABSVhyllLoofIstxcQI0vAxU1Dwjeqj/M1BnOHVB3URJ7Ef3gRrM/AnG2fx/w5iRKpW0TKkAe0ZMp77rksfHX2tvFXpPazcRu4Cigr9ta56O6UR3pAPiGDBoLge1WP+4qCXmsiu9GmGug+RGijYK83gCMfIdEGfJrRAntdk++QOzmoxTMw/6ZBola9oFpc/H0DfX0ORIakY5eWg3pNM60FPiaWJD3OuCk+psdnfmoZdorA/gocYimEC1Xo9lwAUnejBoifIdGOK+9bcAXa0f0DnFCdCB1jhYcpplhINtrNMMV7lpBCdaiqYq9f3F4hm4LjGjO1hqnYKg4NALlyWRFNAT+dp5GdjFv2AFdm4syNQZrU2aYvZkVynAMx2ke0gXhYvHqXoX0X1KkKvmPAtZ4MbtiurasoQi7heU0y1sMsPuQlPlGE71FOKLQYRyXGeSi3Wm2tOCYX5rwOyEJLRhaHM/elwMrvliEszQdSwH/s0FfVILZo5acJJTJoxaiEfI5cxI8TuFd9Oo/2XTGXD6vjM58WetdEUY5MIzLijTgfmdsA+iRXuSJMiVDOdP2KbnHxtLdOGUvopscpFsh8SSDad5ca83rAm6+QRd2pXQU4S9nE1kbY+uTWlOWfaCj6LWrlUKSLWtZS4k/abTpy+mWLZcUOKuof2kV72YfYwk+sXuSxvY4MT0GR9GA19wpVoHBWO4rOiGtaopsNxRvhRKwbtgM+gOSRrGJyjbVBiwhCrnSsvodpgLF8zg3Pk2Vr8NvINFmzaMbJXjUFD6ZGuPuRczZh31lr/sHqOzh5zSL32dlEpBuTIxiJfwgXCufDgoYnB8Be2gb8NHD5dw8HHYC5Rn/RwC0PekUtfynF8+pZLr8KEff8Ga/rfru/BNS+kvfFfji6/MvrvgC1z4wl/4fh6f46uGe+GDZv+1lOkbfWv1Hw==","w":950,"h":426.0000000000002,"aspect":"fixed","title":"database"},{"xml":"xVjbcuI4EP0aPyblO/AYSJh9yGylNlu1j5SwBVYiWx5JDjBfvy1ZxjaWKWbjzBKoWK17n6PTbTnBKj9+46jMvrMUUyd4coIVZ0zWT/lxhSl1fJekTvDo+L4LP8dfj9R6utYtEceFvKWDX3cQ8kRxbcHpHr+aIuMyY3tWIPrUWpecVUWK1QAulNo2z4yVYPTA+IalPL2Sn2oQVEkGpkzm1NTuWCFXjDKuZwxcd7FYr43ddPJiKNdrUwvq7U6wiifGtKhNEvE9NhsOhz7QHY0DvmGWY8lP0IRjiiT56I+ORF3cn9udu74wAiP67tF0iGvfuiczsR/eR/1B6qWafi0MD5yjU6dZqRqI8ZnC+dhM6//aAx7qVTSljmdak2aLLrLtG07UBBRtFU0f9WAxlQa3HoniHxVrKu6ERvQBGvhheWwr4Wmv/hcsbwaCOeux6pp6BzvKDoRt3rHZSoFyXNc0JA46njP87hC6T9dDRiR+LZEm0AHO3QU1CaUdaqYRnqch2IXk7B13aub+Nohbkn5gLvHRGTuEIwRsOswMWAeSyqy2zRoAM0z2mRmmIZyNox1gu7hB0UA3CqOAI0xStPHs/maVLCu52VVF0nd7OJ3bUyQy3daCAfYAhZkNg0U8C1A8KhyfwmTu9g9QsDgf7g5KXvjbUOKVxEKNqsz6ieRI7rGwo1ZmTLINJcW76KMWXUVNHEhOUYEbp5oaBWGSEZo+oxPwASxCouS9KS0zxslPaI8aQKGaN5AEwRDUXaT+ej1f1YhmLo6Varw0aHkXpu/o2Gv4jIRsVskoRaUgW71u1TGH2ECKJZMShKZuNGBSrD/D0FR/LAxT3CIJog+U7Asw5iRNdXCcgHpR1KfefD7gXehaeDf7Et450fIemgFA92/l3oker/GtRLDCHt3iq3QDJ0kbHq7+XNCmYJqXyLic4p28hoQAtSHF/lk3ewxby1/GZcrEoLvaChQz6IgLnd9IJNH2THwTnWFh0RK+4OWVC1qgPLGCsteW4auac6BQAXtCRAOOgZ0HLOSQXv3Mx7glHOhhh3vhrRSL7BRr1Cy4jVLB7CsolWKRcFImhIE9xbpSUQoiDHFWgbMM1JQ/KvX8MMI3M4YkrLCEptmEGcGYIowI2nVtmSpKNdIwDEl2aYg/i+PgzcGI0geiFe6ng5nXJnC9BDE5O6XNAZuj3jFZEkmIY/iu2ZBKJT3VJRomk0/iR4VzNJpQns3dRfpWUepw4Jf0yagMGKK29Ld+Nbrzxwhn16EuTa9KwpiuNFqZAJ8wV+KEOQHkMX89r7LJv16QBHuhLb4bflWQaxTIteVTi4nyKZvqwMI4SpFdTkhhz3EXvyfH3e12fpLYmJbG2zj6IvX433PaNePqrKpdiFb5c1KQHfBuDCuRoRJvEpU0gizwPmCee2t+O0GmFly8JHizoTsD3+JOz/20P4d3P55FkS+krTnRzwqDFyaIip9QtTXZ8eDIS1bapPAfsz9fWRQc8FxylmAhRg5Ce1T0KDWR3XutXognhtkN0dcoJ1Q59Q9MP7Ba0cUJ8G2iZzR5IHrjL+9jr/u3ccO9Sg7Pu3iDtBw1GzcmkruL2LtDST+krljFiTo97p/4MAyk8qRAfVCKqDnyKzc0qu+m7dk7nv51Qc1Yvq3GODR+T7ND6SK1Zl8Ih17gT3Pc/eE1zVQI3iCWN8avDSvlhc8nvB+7HsRwPBLEZottnS5NH8RCy+XZF4UwKLY38/WVaffi/l8=","w":950,"h":530,"aspect":"fixed","title":"function"}]</mxlibrary>'

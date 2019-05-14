@@ -153,7 +153,7 @@ const findRelated=(xml_obj, id_related, all_related=[], already_seen={})=>{
   })
   return [new_all_related, new_already_seen]
 }
-const findAllAndEdges=(xml_obj, list_of_filters)=>{
+const findAllAndEdges=(xml_obj, list_of_filters, edge_origin='target')=>{
   /*console.log('id',id_related)
   console.log('all',all_related)
   console.log('seen',already_seen)*/
@@ -167,7 +167,7 @@ const findAllAndEdges=(xml_obj, list_of_filters)=>{
   })
   let filter_edges = (all_ids)=>{
     return function(props){
-      return props.target!=null && all_ids.includes(props.target) //|| all_ids(props.source==id_to_find=)
+      return props[edge_origin]!=null && all_ids.includes(props[edge_origin]) //|| all_ids(props.source==id_to_find=)
     }
   }
   let edges = findChildren(xml_obj, filter_edges(all_ids))
@@ -199,18 +199,17 @@ const toString = function(xml_obj, builder_opts={}){
     let builder = new xml2js.Builder(builder_opts);
     return builder.buildObject(xml_obj);
 }
+const clearText=(stringToClear)=>{
+  let rgex = />([^><]+)</g
+  let result = rgex.exec(stringToClear)
+  if (result!=null && result.length>1) return result[1]
+  return stringToClear
+}
 const getClearLabels = function(list_nodes){
     if (list_nodes == null) return []
     return _.map(list_nodes, (val)=>{
         let props = getProps(val)
-        let rgex = />([^><]+)</g
-        //console.log(props)
-        if (props['label']){
-            let result = rgex.exec(props['label'])
-            if (result!=null && result.length>1) return result[1]
-            else return props['label']
-        }
-        return null
+        return clearText(props['label'])
     }).filter((val)=>(val!=null))
 }
 //parseString(file)
@@ -323,8 +322,8 @@ module.exports={
   explicitChildrenToNot:explicitChildrenToNot,
   getGeoSimpleBlock:getGeoSimpleBlock,
   //findRelated:findRelated,
-  findAllAndEdges:findAllAndEdges
-
+  findAllAndEdges:findAllAndEdges,
+  clearText:clearText
 }
 
 /*
