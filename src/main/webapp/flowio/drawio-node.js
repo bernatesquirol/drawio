@@ -106,23 +106,33 @@ const findRelated=(xml_obj, id_related, all_related=[], already_seen={})=>{
     }else if(item.$.source==id_related){
       return [item.$.id, item.$.target] //afegim edge i busquem l'altre punta
     }
-    return item.$.id //afegim fill i busquem dins
+    return [item.$.id,item.$.parent] //afegim fill i busquem dins
   }).flat()
+  if(id_related=='EbFoM5QjGcWt9suONcQ1-1'){
+    console.log('OJU!!! ',JSON.stringify(sons_and_connected,null,1))
+  }
   let him_list = findChildrenValueFilter(xml_obj, {'id':id_related})//[0]
-  let him_id = Object.values(him_list[0])[0].$.parent
-  let children = [...getChildren(him_list[0]).map((val)=>{
-    console.log(Object.values(val)[0].$)
-    return val.$.parent
-  }),him_id]//.filter((val)=>val!=null)
-  console.log(children)
+  new_all_related.push(him_list[0])
+  //let him_id = Object.values(him_list[0])[0].$.parent
+  let children_parents = [...getChildren(him_list[0]),him_list[0]].map((val)=>{
+    console.log(val)
+    console.log(Object.values(val)[0])
+    return Object.values(val)[0].$.parent
+  })
+  
+  console.log('cd_pt',children_parents)
+  console.log('ids',id_to_search)
+  id_to_search = [...id_to_search,...children_parents].filter((val)=>val!=null&&val!=ROOT_ID)
+  //console.log('children',children)
   //let ids_children = children.p.map()
-
   //if xml_obj.$.parent
-  if (him_list && him_list.length>0){
+  //EbFoM5QjGcWt9suONcQ1-1
+  //
+  /*if (him_list && him_list.length>0){
     new_all_related.push(him_list[0])
-
-
-    console.log('child', id_related,JSON.stringify(getChildren(him_list[0]),null,1))
+    let him = Object.values(him_list[0])[0]
+    console.log('him',him)
+    //console.log('child', id_related,JSON.stringify(getChildren(him_list[0]),null,1))
     if ( him.$.parent&&him.$.parent.length>1){
       let parents = findChildrenValueFilter(xml_obj, {'id':him.$.parent})
       console.log('found!!', id_related, him.$.parent,JSON.stringify(parents,null,0))
@@ -133,15 +143,38 @@ const findRelated=(xml_obj, id_related, all_related=[], already_seen={})=>{
         }
       }
     }
-  }
-
+  }*/
+  console.log('ids',id_to_search)
   let recursive_step = id_to_search.forEach((id_item)=>{
     let result = findRelated(xml_obj, id_item, new_all_related, new_already_seen)
-    //console.log('result', result)
+    console.log('result', result)
     new_all_related = result[0].flat()
     new_already_seen = result[1]
   })
   return [new_all_related, new_already_seen]
+}
+const findAllAndEdges=(xml_obj, list_of_filters)=>{
+  /*console.log('id',id_related)
+  console.log('all',all_related)
+  console.log('seen',already_seen)*/
+  let all_blocks = list_of_filters.map((filter)=>{
+    return findChildrenValueFilter(xml_obj,filter)
+  }).flat()
+  //console.log(all_blocks)
+  let all_ids = all_blocks.map((block)=>{
+    //console.log(block)
+    return Object.values(block)[0].$.id
+  })
+  let filter_edges = (all_ids)=>{
+    return function(props){
+      return props.target!=null && all_ids.includes(props.target) //|| all_ids(props.source==id_to_find=)
+    }
+  }
+  let edges = findChildren(xml_obj, filter_edges(all_ids))
+  /*console.log('all_bl',all_blocks.length)
+  console.log('all_e',edges.length)*/
+  
+  return [all_blocks,edges]
 }
 const findChildrenValueFilter = function(root, obj_filter={}){
   return findChildren(root, (props)=>_.reduce(obj_filter,(result, value, key) =>
@@ -189,13 +222,16 @@ let result_decompressed = await parseString(decompress(compressed),{'explicitChi
 children=findChildren(result_decompressed, {'key_flowio':'input'})*/
 //getClearLabels(children)
 
-const getSimpleBlockFromLibrary = function(library, title){
+const getSimpleBlockFromLibrary = function(library, title, type='object'){
     return parseString(library).then((lib_xml)=>{
         let list_blocks = (lib_xml).mxlibrary
-        return Promise.all(JSON.parse(list_blocks).filter((block)=>(block.title==title)).map((obj)=>(parseString(decompress(obj.xml)).then((decompressed_block)=>{
-        let obj_val = decompressed_block.mxGraphModel.root[0].object[0]
-        //cleaning upper layers
-            return {'object':obj_val}
+        return Promise.all(JSON.parse(list_blocks).filter((block)=>(block.title==title))
+                  .map((obj)=>(parseString(decompress(obj.xml)).then((decompressed_block)=>{
+                    let obj_val = decompressed_block.mxGraphModel.root[0][type][0]
+                    //cleaning upper layers
+                    let return_obj = {}
+                    return_obj[type]=obj_val
+                    return return_obj
         })
         )))
     })
@@ -262,7 +298,10 @@ const openDiagram = (path, opts={})=>{
 }
 
 const getDiagram = (array_obj, root_id)=>{
-  return {'mxGraphModel':{'root':[{...groupBy_values(array_obj, Object.keys),'mxCell':[{$: {id: "0"}},{$: {id: root_id, parent: "0"}}]}]}}
+  let root = {'mxCell':[],...groupBy_values(array_obj, Object.keys)}
+  console.log(root['mxCell'])
+  root['mxCell']=[...root['mxCell'],{$: {id: "0"}},{$: {id: root_id, parent: "0"}}]
+  return {'mxGraphModel':{'root':root}}
 
 }
 
@@ -283,7 +322,8 @@ module.exports={
   getDiagram:getDiagram,
   explicitChildrenToNot:explicitChildrenToNot,
   getGeoSimpleBlock:getGeoSimpleBlock,
-  findRelated:findRelated,
+  //findRelated:findRelated,
+  findAllAndEdges:findAllAndEdges
 
 }
 

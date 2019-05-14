@@ -57,7 +57,11 @@ function loadLocalLibraries (win,query){
 		if(!Array.isArray(query['flowio_path'])) query['flowio_path']=[query['flowio_path']]
 		query['flowio_path'].forEach((file_path)=>{
 			flowio.importLocalLibraries(importlocallib, file_path, file_path, null)
-			flowio.createFileIndex(file_path)
+			let index = flowio.createFileIndex(file_path).then((index)=>{
+				flowio.extractLogicFromFile(index,'53198770598448880').then((data)=>console.log(data))//(53198770598448880) (35184372089326284)
+			})
+			//console.log(index)
+			
 		})
 	}
 }
