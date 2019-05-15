@@ -82,10 +82,7 @@ const findChildren = function(root, filter_func){
   let return_value = _.flatMap(children,(child)=>findChildren(child,filter_func)).filter((child)=>child!=null)
   return return_value
 }
-const findRelated=(xml_obj, id_related, all_related=[], already_seen={})=>{
-  /*console.log('id',id_related)
-  console.log('all',all_related)
-  console.log('seen',already_seen)*/
+/*const findRelated=(xml_obj, id_related, all_related=[], already_seen={})=>{
   if (id_related==null || already_seen[id_related]) return [all_related, already_seen]
   let new_already_seen = {...already_seen}
   let new_all_related = [...all_related]
@@ -119,7 +116,7 @@ const findRelated=(xml_obj, id_related, all_related=[], already_seen={})=>{
     console.log(Object.values(val)[0])
     return Object.values(val)[0].$.parent
   })
-  
+
   console.log('cd_pt',children_parents)
   console.log('ids',id_to_search)
   id_to_search = [...id_to_search,...children_parents].filter((val)=>val!=null&&val!=ROOT_ID)
@@ -128,22 +125,7 @@ const findRelated=(xml_obj, id_related, all_related=[], already_seen={})=>{
   //if xml_obj.$.parent
   //EbFoM5QjGcWt9suONcQ1-1
   //
-  /*if (him_list && him_list.length>0){
-    new_all_related.push(him_list[0])
-    let him = Object.values(him_list[0])[0]
-    console.log('him',him)
-    //console.log('child', id_related,JSON.stringify(getChildren(him_list[0]),null,1))
-    if ( him.$.parent&&him.$.parent.length>1){
-      let parents = findChildrenValueFilter(xml_obj, {'id':him.$.parent})
-      console.log('found!!', id_related, him.$.parent,JSON.stringify(parents,null,0))
-      if(parents && parents.length>0){
-        let parent = Object.values(parents)[0]
-        if(Object.keys(parent).includes('flowio_key') && parent.$.id!=null){
-          id_to_search.push(parent.$.id)
-        }
-      }
-    }
-  }*/
+
   console.log('ids',id_to_search)
   let recursive_step = id_to_search.forEach((id_item)=>{
     let result = findRelated(xml_obj, id_item, new_all_related, new_already_seen)
@@ -152,7 +134,7 @@ const findRelated=(xml_obj, id_related, all_related=[], already_seen={})=>{
     new_already_seen = result[1]
   })
   return [new_all_related, new_already_seen]
-}
+}*/
 
 const findEdges=(xml_obj,all_blocks,edge_origin='target')=>{
   let all_ids = all_blocks.map((block)=>{

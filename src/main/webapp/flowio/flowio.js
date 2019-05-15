@@ -123,7 +123,7 @@ function importLocalLibraries(loadLocalLibrary, file_path, original_file_path, b
 				}else if (isStudy(result_decompressed)){
 					xml_data = importBlock(result_decompressed, file_id, 'study')
 					//let id = drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'database_modified'})[0].object.$.id
-					
+
 				}else if (isDatabase(result_decompressed)){
 					xml_data = importBlock(result_decompressed, file_id, 'database')
 				}
@@ -207,7 +207,7 @@ const createFlowioIndex=(original_path, added_path='./')=>{
       })
     })
   }else if(lstat.isFile()){
-		
+
       let file_id = lstat.ino
       let return_val = {}
       return_val[file_id]=file_path
@@ -227,14 +227,15 @@ const getFileIndex=(original_path)=>{
 }
 const getCollapsibleFromMxCell = (result_decompressed,width_big=null,height_big=null)=>{
 	let shape = getShape(result_decompressed)
-	//console.log('shape',shape)
+	console.log('shape',shape)
 	let style = shape.mxCell.$.style
 	//console.log(style)
 	let basics_lib = getBasics()
 	let function_promise = drawionode.getSimpleBlockFromLibrary(basics_lib, 'grouped')
-	return function_promise.then((data)=>{		
+	return function_promise.then((data)=>{
+
 		//let modified = modifySimpleBlock(data,id=real_func_id, id_parent=ROOT_ID, 'prova')
-		//console.log(data)
+		console.log(data)
 		//console.log('tal',JSON.stringify(data[0].object.mxCell[0].$.style))
 		data[0].object.mxCell[0].$.style=style+';container=1'
 		//console.log('tal',JSON.stringify(data[0].object.mxCell[0].$.style))
@@ -246,80 +247,79 @@ const extractLogicFromFunction=(index, file_id)=>{
 		let input_ids = {}
 		let output_ids = {}
 		let new_id_parent = guidGenerator()
-		if (!isFunction(result_decompressed)) return [{},[],{}]
-		let input_cells = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'input_func'}).map((item)=>{
+		if (!isFunction(result_decompressed)) return [{},[[],0],{}]
+		let input_cells = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'input_func'})
+		let output_cells = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'output_func'})
+    /*.map((item)=>{
 			item.object.mxCell[0].$.parent = new_id_parent
 			return item
-		})
-		let output_cells = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'output_func'}).map((item)=>{
-			item.object.mxCell[0].$.parent = new_id_parent
-			return item
-		})
+		})*/
 		input_ids = input_cells.reduce((obj,item)=>{
 			obj[drawionode.clearText(item.object.$.label)]=item.object.$.id
 			return obj
 		},{})
-		output_ids = output_cells.reduce((obj,item)=>{			
+		output_ids = output_cells.reduce((obj,item)=>{
 			obj[drawionode.clearText(item.object.$.label)]=item.object.$.id
 			return obj
 		},{})
 		let function_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'function'})
 		let input_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'input'})
 		let output_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'output'})
-		return Promise.all(function_cells_small.map((func)=>{
-			return Promise.all([Promise.resolve(func),extractLogicFromFunction(index,func.object.$.flowio_id)])
-		})).then((all_funcs)=>{
-			let dict_small_to_big = all_funcs.map((func)=>{
-				let cell_small_id = func[0].object.$.id
-				let logic_func = func[1]
-				let input_func = logic_func[0]
-				let output_func = logic_func[2]				
-				let input_small_to_big = input_cells_small.filter((item)=>{
-					return item.object.mxCell[0].$.parent == cell_small_id
-				}).reduce((obj,item)=>{
-					obj[item.object.$.id]=input_func[drawionode.clearText(item.object.$.label)]
-					return obj
-				},{})
-				let output_small_to_big =  output_cells_small.filter((item)=>{
-					return item.object.mxCell[0].$.parent == cell_small_id
-				}).reduce((obj,item)=>{
-					obj[item.object.$.id]=output_func[drawionode.clearText(item.object.$.label)]
-					//obj[drawionode.clearText(item.object.$.label)]=item.object.$.id
-					return obj
-				},{})
-				//console.log('hei',output_small_to_big,input_small_to_big)
-				return {...input_small_to_big,...output_small_to_big}
-			}).reduce((total, item)=>({...total, ...item}),{})
-			//console.log('dict_small_to_big',dict_small_to_big)
-			//console.log(all_funcs)
-			let new_funcs = all_funcs.reduce((total,item)=>{
-				console.log('item',item[1][1])
-				return [...total, ...item[1][1]]
-			},[])
-			console.log(new_funcs)
-			let collapsible = getCollapsibleFromMxCell(result_decompressed)
-			let container_collapsible = drawionode.modifySimpleBlock(collapsible,new_id_parent,ROOT_ID,new_id_parent)
-			let all_blocks = [container_collapsible,...new_funcs, ...input_cells, ...output_cells]
-			//console.log('all_blocks',all_blocks)
-			let all_and_edges = drawionode.findAllAndEdges(result_decompressed, [{'flowio_key':'input_func'},{'flowio_key':'input'},{'flowio_key':'output_func'},{'flowio_key':'output'},{'flowio_key':'output_func'}])
-			let edges = all_and_edges[1]
-			let new_edges = edges.map((edge)=>{
-				let new_edge = {...edge}
-				let keystoChange = Object.keys(dict_small_to_big)
-				if (keystoChange.includes(new_edge.mxCell.$.source)){
-					new_edge.mxCell.$.source = dict_small_to_big[new_edge.mxCell.$.source]
-				}
-				if (keystoChange.includes(new_edge.mxCell.$.target)){
-					new_edge.mxCell.$.target = dict_small_to_big[new_edge.mxCell.$.target]
-				}
-				return new_edge
-			})
-			return [input_ids,[...all_blocks,...new_edges],output_ids]
-		})
-		
-		//let all_keys = [{'flowio_key':'function'}]//{'flowio_key':'hardcoded'}
-		
-		//return drawionode.findAllAndEdges(result_decompressed,all_keys)
+    return getCollapsibleFromMxCell(result_decompressed).then((collapsible)=>{
+      return Promise.all(function_cells_small.map((func)=>{
+  			return Promise.all([Promise.resolve(func),extractLogicFromFunction(index,func.object.$.flowio_id)])
+  		})).then((all_funcs)=>{
+  			let dict_small_to_big = all_funcs.map((func)=>{
+  				let cell_small_id = func[0].object.$.id
+  				let logic_func = func[1]
+  				let input_func = logic_func['input_dict']
+  				let output_func = logic_func['output_dict']
+  				let input_small_to_big = input_cells_small.filter((item)=>{
+  					return item.object.mxCell[0].$.parent == cell_small_id
+  				}).reduce((obj,item)=>{
+  					obj[item.object.$.id]=input_func[drawionode.clearText(item.object.$.label)]
+  					return obj
+  				},{})
+  				let output_small_to_big =  output_cells_small.filter((item)=>{
+  					return item.object.mxCell[0].$.parent == cell_small_id
+  				}).reduce((obj,item)=>{
+  					obj[item.object.$.id]=output_func[drawionode.clearText(item.object.$.label)]
+  					//obj[drawionode.clearText(item.object.$.label)]=item.object.$.id
+  					return obj
+  				},{})
+  				//console.log('hei',output_small_to_big,input_small_to_big)
+  				return {...input_small_to_big,...output_small_to_big}
+  			}).reduce((total, item)=>({...total, ...item}),{})
+  			//console.log('dict_small_to_big',dict_small_to_big)
+  			//console.log(all_funcs)
+  			let new_funcs = all_funcs.reduce((total,item)=>{
+  				return [...total, ...item[1]['blocks']]
+  			},[])
+        let new_funcs_width = all_funcs.reduce((total,item)=>{
+  				return total + item[1]['width']
+  			},0)
+  			//console.log(new_funcs)
+        let container_collapsible = drawionode.modifySimpleBlock(collapsible,new_id_parent,ROOT_ID)//posarlhi nom
+        //console.log(container_collapsible)
+  			let all_blocks = [container_collapsible,...new_funcs, ...input_cells, ...output_cells]
+  			//console.log('all_blocks',all_blocks)
+  			let all_and_edges = drawionode.findAllAndEdges(result_decompressed, [{'flowio_key':'input_func'},{'flowio_key':'input'},{'flowio_key':'output_func'},{'flowio_key':'output'},{'flowio_key':'output_func'}])
+  			let edges = all_and_edges[1]
+        console.log(edges.length)
+  			let new_edges = edges.map((edge)=>{
+  				let new_edge = {...edge}
+  				let keystoChange = Object.keys(dict_small_to_big)
+  				if (keystoChange.includes(new_edge.mxCell.$.source)){
+  					new_edge.mxCell.$.source = dict_small_to_big[new_edge.mxCell.$.source]
+  				}
+  				if (keystoChange.includes(new_edge.mxCell.$.target)){
+  					new_edge.mxCell.$.target = dict_small_to_big[new_edge.mxCell.$.target]
+  				}
+  				return new_edge
+  			})
+  			return {'input_dict':input_ids,'blocks':[...all_blocks,...new_edges],'output_dict':output_ids, 'width':width}
+  		})
+    })
 	})
 }
 /*const changeParent=(xml_obj, new_id_parent)=>{
@@ -328,7 +328,7 @@ const extractLogicFromFunction=(index, file_id)=>{
 		if (Array.isArray(new_xml_obj[key])) {
 			new_xml_obj[key]
 		}
-		
+
 		if(new_xml_obj[key].$.parent){
 			new_xml_obj[key].$.parent=new_id_parent
 		}
@@ -337,10 +337,10 @@ const extractLogicFromFunction=(index, file_id)=>{
 
 }*/
 const extractLogicFromFile=(index,file_id)=>{
-	if (!index[file_id]) return 
+	if (!index[file_id]) return
 	return readDiagram(index[file_id]).then((result_decompressed)=>{
 		if (isStudy(result_decompressed)){
-			let all_keys = [{'flowio_key':'hardcoded'},{'flowio_key':'function'},{'flowio_key':'database'},{'flowio_key':'database_modified'},{'flowio_key':'input'},{'flowio_key':'output'}]			
+			let all_keys = [{'flowio_key':'hardcoded'},{'flowio_key':'function'},{'flowio_key':'database'},{'flowio_key':'database_modified'},{'flowio_key':'input'},{'flowio_key':'output'}]
 			let all_and_edges = drawionode.findAllAndEdges(result_decompressed,all_keys)
 			//let collapsible = getCollapsibleFromMxCell(result_decompressed)
 			let all = all_and_edges[0]
@@ -349,11 +349,18 @@ const extractLogicFromFile=(index,file_id)=>{
 			//console.log(edges)
 			//console.log('logic',logic.length)
 			return [...all,...edges]
-			//let mxGraph = drawionode.getDiagram([...all,...edges], ROOT_ID)			
+			//let mxGraph = drawionode.getDiagram([...all,...edges], ROOT_ID)
 			//console.log(logic)
 			//console.log(JSON.stringify(mxGraph,null,1))
 			//console.log(drawionode.toString(mxGraph,{headless:true}))
-		}
+		}else if(isFunction(result_decompressed)){
+      extractLogicFromFunction(index, file_id).then((func_extraction)=>{
+        let all_blocks = func_extraction['blocks']
+        let mxGraph = drawionode.getDiagram(all_blocks, ROOT_ID)
+        //console.log(JSON.stringify(mxGraph,null,1))
+        console.log(drawionode.toString(mxGraph,{headless:true}))
+      })
+    }
 	})
 }
 
