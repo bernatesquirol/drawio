@@ -153,16 +153,9 @@ const findRelated=(xml_obj, id_related, all_related=[], already_seen={})=>{
   })
   return [new_all_related, new_already_seen]
 }
-const findAllAndEdges=(xml_obj, list_of_filters, edge_origin='target')=>{
-  /*console.log('id',id_related)
-  console.log('all',all_related)
-  console.log('seen',already_seen)*/
-  let all_blocks = list_of_filters.map((filter)=>{
-    return findChildrenValueFilter(xml_obj,filter)
-  }).flat()
-  //console.log(all_blocks)
+
+const findEdges=(xml_obj,all_blocks,edge_origin='target')=>{
   let all_ids = all_blocks.map((block)=>{
-    //console.log(block)
     return Object.values(block)[0].$.id
   })
   let filter_edges = (all_ids)=>{
@@ -171,9 +164,14 @@ const findAllAndEdges=(xml_obj, list_of_filters, edge_origin='target')=>{
     }
   }
   let edges = findChildren(xml_obj, filter_edges(all_ids))
-  /*console.log('all_bl',all_blocks.length)
-  console.log('all_e',edges.length)*/
-  
+  return edges
+}
+
+const findAllAndEdges=(xml_obj, list_of_filters, edge_origin='target')=>{
+  let all_blocks = list_of_filters.map((filter)=>{
+    return findChildrenValueFilter(xml_obj,filter)
+  }).flat()
+  let edges = findEdges(xml_obj,all_blocks,edge_origin)
   return [all_blocks,edges]
 }
 const findChildrenValueFilter = function(root, obj_filter={}){
@@ -323,7 +321,8 @@ module.exports={
   getGeoSimpleBlock:getGeoSimpleBlock,
   //findRelated:findRelated,
   findAllAndEdges:findAllAndEdges,
-  clearText:clearText
+  clearText:clearText,
+  findEdges:findEdges,
 }
 
 /*
