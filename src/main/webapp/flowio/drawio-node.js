@@ -219,7 +219,7 @@ const getSimpleBlockFromLibrary = function(library, title, type='object'){
 const formatLabel=(label, new_label)=>{
   if (label == null) return new_label
   let matches = label.match(/\<(.*?)\>/g)
-  return matches.slice(0,matches.length/2).join('')+new_label+matches.slice(matches.length/2).join('')
+  return matches?matches.slice(0,matches.length/2).join('')+new_label+matches.slice(matches.length/2).join(''):new_label
 }
 
 //let input = ((await getSimpleBlockFromLibrary(basics, 'input'))[0])
@@ -246,7 +246,12 @@ const getGeoSimpleBlock = (block_o)=>{
      return {...block_o.object.mxCell[0].mxGeometry[0].$}
 }
 
-
+const removeEdgePoints = (edge)=>{
+  let new_edge = JSON.parse(JSON.stringify(edge))
+  //console.log(JSON.stringify(edge,null,1))
+  new_edge.mxCell.mxGeometry[0]={$:new_edge.mxCell.mxGeometry[0].$}
+  return new_edge
+}
 //modifySimpleBlock(input[0],'id-input','parent_id', 1,2,4,5)
 
 const explicitChildrenToNot=(obj)=>{
@@ -305,6 +310,7 @@ module.exports={
   findAllAndEdges:findAllAndEdges,
   clearText:clearText,
   findEdges:findEdges,
+  removeEdgePoints:removeEdgePoints,
 }
 
 /*
