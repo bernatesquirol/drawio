@@ -251,7 +251,7 @@ const extractLogicFromFunction=(index, file_id)=>{
 		let input_cells = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'input_func'})
 		let output_cells = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'output_func'})
     /*.map((item)=>{
-			item.object.mxCell[0].$.parent = new_id_parent
+
 			return item
 		})*/
 		input_ids = input_cells.reduce((obj,item)=>{
@@ -301,11 +301,19 @@ const extractLogicFromFunction=(index, file_id)=>{
   			//console.log(new_funcs)
         let container_collapsible = drawionode.modifySimpleBlock(collapsible,new_id_parent,ROOT_ID)//posarlhi nom
         //console.log(container_collapsible)
+        let in_out_cells = [...input_cells, ...output_cells]
+        input_cells.map((item)=>{
+        	 item.object.mxCell[0].$.parent = new_id_parent
+        })
+        output_cells.map((item)=>{
+          return drawionode.modifySimpleBlock(item, )
+        	 item.object.mxCell[0].$.parent = new_id_parent
+        })
   			let all_blocks = [container_collapsible,...new_funcs, ...input_cells, ...output_cells]
   			//console.log('all_blocks',all_blocks)
   			let all_and_edges = drawionode.findAllAndEdges(result_decompressed, [{'flowio_key':'input_func'},{'flowio_key':'input'},{'flowio_key':'output_func'},{'flowio_key':'output'},{'flowio_key':'output_func'}])
   			let edges = all_and_edges[1]
-        console.log(edges.length)
+        //console.log(edges.length)
   			let new_edges = edges.map((edge)=>{
   				let new_edge = {...edge}
   				let keystoChange = Object.keys(dict_small_to_big)
