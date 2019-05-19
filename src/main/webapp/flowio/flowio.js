@@ -429,7 +429,7 @@ function createDocumentation(index, file_path, flowio_path, depth=1){
 	if (path.basename(file_path)[0]=='_') return
 	if(!fs.existsSync(path.join(flowio_path,'./_docs'))) fs.mkdirSync(path.join(flowio_path,'./_docs'));
 	if(!fs.existsSync(path.join(flowio_path,'./_docs/README.md'))) fs.writeFileSync(path.join(flowio_path,'./_docs/README.md'),'docs');
-	if(depth>3) return
+	if(depth>100) return
 	if(fs.lstatSync(file_path).isFile()){
 		let key_lib = path.basename(file_path)
 		if (key_lib.slice(-7)=='.drawio'){			
