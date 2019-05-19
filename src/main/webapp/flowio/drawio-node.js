@@ -162,7 +162,7 @@ const findChildrenValueFilter = function(root, obj_filter={}){
 }
 
 
-const parseString = function(stringToParse, args_parser={}){
+const parseStringDrawio = function(stringToParse, args_parser={}){
     return new Promise(function(resolve, reject){
         let parser = new xml2js.Parser(args_parser);
         parser.parseString(stringToParse,function(err, result){
@@ -192,20 +192,20 @@ const getClearLabels = function(list_nodes){
         return clearText(props['label'])
     }).filter((val)=>(val!=null))
 }
-//parseString(file)
+//parseStringDrawio(file)
 /*let parser = new xml2js.Parser();
 let children = []
-let result = await parseString(file)
+let result = await parseStringDrawio(file)
 let compressed = result['mxfile']['diagram'][0]._;
-let result_decompressed = await parseString(decompress(compressed),{'explicitChildren':true})
+let result_decompressed = await parseStringDrawio(decompress(compressed),{'explicitChildren':true})
 children=findChildren(result_decompressed, {'key_flowio':'input'})*/
 //getClearLabels(children)
 
 const getSimpleBlockFromLibrary = function(library, title, type='object'){
-    return parseString(library).then((lib_xml)=>{
+    return parseStringDrawio(library).then((lib_xml)=>{
         let list_blocks = (lib_xml).mxlibrary
         return Promise.all(JSON.parse(list_blocks).filter((block)=>(block.title==title))
-                  .map((obj)=>(parseString(decompress(obj.xml)).then((decompressed_block)=>{
+                  .map((obj)=>(parseStringDrawio(decompress(obj.xml)).then((decompressed_block)=>{
                     let obj_val = decompressed_block.mxGraphModel.root[0][type][0]
                     //cleaning upper layers
                     let return_obj = {}
@@ -274,9 +274,9 @@ const groupBy_values = (array, func)=>{
 
 const openDiagram = (path, opts={})=>{
   return fs.promises.readFile(path,'utf8').then((data)=>{
-    return drawionode.parseString(data).then((data_value)=>{
+    return drawionode.parseStringDrawio(data).then((data_value)=>{
       let compressed = data_value['mxfile']['diagram'][0]._;
-      return drawionode.parseString(drawionode.decompress(compressed),opts)
+      return drawionode.parseStringDrawio(drawionode.decompress(compressed),opts)
     })
   })
 }
@@ -296,7 +296,7 @@ module.exports={
   //decode: decode,
   decompress:decompress,
   compress:compress,
-  parseString:parseString,
+  parseStringDrawio:parseStringDrawio,
   toString: toString,
   getSimpleBlockFromLibrary: getSimpleBlockFromLibrary,
   getClearLabels:getClearLabels,
@@ -320,7 +320,7 @@ let final_func = await createMinimizedFunctionCell(['a1','a2','a3'],['b1','b2'],
 
 
 let prova = "7ZZRb9owEMc/TR47JTZx4LHA2j100rQ+7LEyjkO8OnHmOAX26XfnOBBa2Do0bZrUSAjf/e073/lnSEQX1fbW8qb8aHKpI/o+ogtrjOtH1XYhtY5IrPKILiNCYvhE5OaMmng1briVtTuxwKy+SuFghuYrTLb0ItMwd16YGpXW7bT0CvvW4TbmWtXyqpRqXYJ1DVNSiJkedBit/Xc2d8rB4mw5xITEfdgww+/uUe4eBO7bpy+6Wjhl6l4bCiFoHtd42Bh5ktYpwfUdVvHJtMoHoMuVcc5UkGiYcK3VGgVnGvCWrsKkCQxbZ82j/KJyVw6ekjcYvrFGyLYFz6ZUTt43XKB7A0cEPmu6Opf5sEZ9Ry1+FzNGEzKbZXSSTaYxatyK+15m2Fyl9cJoY30BNE/lNJ/s9zFSpmRFGa4Q0DcOnbchF/bxhldK78DxQeoniRXum4oVy+1ZCpJRP2+lqaSzO5iyCQ3AjrOelHg4aXRmwcfb3l7vl+6jfQageL2GoyFxyE9pWLYLoSfBHqWbnshGnmXj2klbcyfn2PV2DDIMRoUcXJ6VwQy0X04+Clf9ISP3CWm2l2NfaLNR5gHo77ObzjWdO8ae/hT7A3zxGTxHhB/xctcJlXOItjB1azCe1wOgyTTYIw5j/yDH4QoJYAlhfInsjGWUs5OX6hn2MgHws9cyS04zuz2GJXQzuQyxMdBHbP1HIKn6BUeTf8fRr3nJ2Yqlr+KlKAoixJ/hJWHwMz16+rv2xs9JftI3fn6TH5r+JX7APLwe9n+D47fHHw=="
-let real = await parseString(decompress(prova))
+let real = await parseStringDrawio(decompress(prova))
 compress(toString(real,{'renderOpts':{'pretty':false},'headless':true})
 decompress(prova)
 //compress(toString(real,{'minified':true}))
