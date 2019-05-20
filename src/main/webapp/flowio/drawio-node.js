@@ -222,6 +222,15 @@ const formatLabel=(label, new_label)=>{
   return matches?matches.slice(0,matches.length/2).join('')+new_label+matches.slice(matches.length/2).join(''):new_label
 }
 
+const getGeometry = (block)=>{
+  return {
+    x:parseInt(block.object.mxCell[0].mxGeometry[0].$.x),
+    y:parseInt(block.object.mxCell[0].mxGeometry[0].$.y),
+    width:parseInt(block.object.mxCell[0].mxGeometry[0].$.width),
+    height:parseInt(block.object.mxCell[0].mxGeometry[0].$.height)
+  }
+}
+
 //let input = ((await getSimpleBlockFromLibrary(basics, 'input'))[0])
 const modifySimpleBlock = (block_o, id=null, id_parent=null,new_title=null, x=null, y=null,width=null, height=null, flowio_id=null)=>{
     let block = JSON.parse(JSON.stringify(block_o))
@@ -233,6 +242,7 @@ const modifySimpleBlock = (block_o, id=null, id_parent=null,new_title=null, x=nu
     }
     if (!Object.keys(block).includes('object')) return block
     if (new_title!=null) block.object.$.label = formatLabel(block.object.$.label,new_title)
+    console.log(new_title, block.object.$.label)
     if (width!=null) block.object.mxCell[0].mxGeometry[0].$.width = width
     if (height!=null) block.object.mxCell[0].mxGeometry[0].$.height = height
     if (x!=null) block.object.mxCell[0].mxGeometry[0].$.x = x
@@ -311,6 +321,7 @@ module.exports={
   clearText:clearText,
   findEdges:findEdges,
   removeEdgePoints:removeEdgePoints,
+  getGeometry:getGeometry
 }
 
 /*

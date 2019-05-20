@@ -14,8 +14,7 @@ const guidGenerator = ()=>{
 const createMinimizedFunctionCell = (basics_lib_path, inputs, outputs, flowio_id, function_name, mxCell_func_style=null, top_padding=10, padding_side=20)=>{
 	let basics_lib = getBasics(basics_lib_path)
 	let function_promise = drawionode.getSimpleBlockFromLibrary(basics_lib, 'function')
-
-	let input_promise = drawionode.getSimpleBlockFromLibrary(basics_lib, 'input')
+  let input_promise = drawionode.getSimpleBlockFromLibrary(basics_lib, 'input')
 	let output_promise = drawionode.getSimpleBlockFromLibrary(basics_lib, 'output')
 	return Promise.all([function_promise,input_promise,output_promise]).then(function(result){
 			let real_func_id = flowio_id//'function'-guidGenerator()
@@ -232,28 +231,68 @@ const getCollapsibleFromMxCell = (result_decompressed,width_big=null,height_big=
 	let basics_lib = getBasics()
 	let function_promise = drawionode.getSimpleBlockFromLibrary(basics_lib, 'grouped')
 	return function_promise.then((data)=>{
-
-		//let modified = modifySimpleBlock(data,id=real_func_id, id_parent=ROOT_ID, 'prova')
-		console.log(data)
-		//console.log('tal',JSON.stringify(data[0].object.mxCell[0].$.style))
 		data[0].object.mxCell[0].$.style=style+';container=1'
-		//console.log('tal',JSON.stringify(data[0].object.mxCell[0].$.style))
 		return data[0]
 	})
 }
-const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0)=>{
+const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0, padding_top=20)=>{
 	return readDiagram(index[file_id]).then((result_decompressed)=>{
 		let input_ids = {}
 		let output_ids = {}
 		let new_id_parent = guidGenerator()
 		if (!isFunction(result_decompressed)) return [{},[[],0],{}]
-		let input_cells = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'input_func'})
+    let basics_lib = getBasics()
+  	let promise_container = drawionode.getSimpleBlockFromLibrary(basics_lib, 'container')
+    let title = drawionode.getClearLabels(drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'name'}))[0]
+    let input_cells = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'input_func'})
 		let output_cells = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'output_func'})
-    /*.map((item)=>{
+    let function_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'function'})
+    let input_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'input'})
+		let output_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'output'})
+    let x_min = [...function_cells_small,...input_cells,...output_cells].reduce((acc,item)=>{
+      let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.x)
+      if (new_x<acc) return new_x
+      return acc
+    },Number.MAX_SAFE_INTEGER)
+    let y_min = [...function_cells_small,...input_cells,...output_cells].reduce((acc,item)=>{
+      let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.y)
+      if (new_x<acc) return new_x
+      return acc
+    },Number.MAX_SAFE_INTEGER)
+    let x_max = [...function_cells_small,...input_cells,...output_cells].reduce((acc,item)=>{
+      let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.x)+parseInt(item.object.mxCell[0].mxGeometry[0].$.width)
+      if (new_x>acc) return new_x
+      return acc
+    },0)
+    let y_max = [...function_cells_small,...input_cells,...output_cells].reduce((acc,item)=>{
+      let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.y)+parseInt(item.object.mxCell[0].mxGeometry[0].$.height)
+      if (new_x>acc) return new_x
+      return acc
+    },0)
+    return promise_container.then((container)=>{//x=null, y=null,width=null, height=null
+      console.log(padding_top)
+      let container_modified = drawionode.modifySimpleBlock(container[0], new_id_parent, root_id, title, x, y, x_max-x_min,padding_top+y_max-y_min)
+      input_cells = input_cells.map((item, index)=>{
+        let geo = drawionode.getGeometry(item)
+      	return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
+      })
+      output_cells = output_cells.map((item, index)=>{
+        let geo = drawionode.getGeometry(item)
+        return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
+			})
+      function_cells_small = function_cells_small.map((item, index)=>{
+        let geo = drawionode.getGeometry(item)
+        return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
+      })
+      let all_and_edges = drawionode.findAllAndEdges(result_decompressed, [{'flowio_key':'input_func'},{'flowio_key':'input'},{'flowio_key':'output_func'},{'flowio_key':'output'},{'flowio_key':'output_func'}])
+			let edges = all_and_edges[1]
+      return {'blocks':[container_modified,...input_cells_small,...output_cells_small,...edges,...input_cells,...output_cells,...function_cells_small]}
+      //container_modified.object.$.label=title
+      //console.log(JSON.stringify(container_modified))
+      //container_modified.mxCell.$.value=title
+    })
 
-			return item
-		})*/
-		input_ids = input_cells.reduce((obj,item)=>{
+		/*input_ids = input_cells.reduce((obj,item)=>{
 			obj[drawionode.clearText(item.object.$.label)]=item.object.$.id
 			return obj
 		},{})
@@ -261,111 +300,106 @@ const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0)=>{
 			obj[drawionode.clearText(item.object.$.label)]=item.object.$.id
 			return obj
 		},{})
-		let function_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'function'})
-		let input_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'input'})
-		let output_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'output'})
-    return getCollapsibleFromMxCell(result_decompressed).then((collapsible)=>{
-      return Promise.all(function_cells_small.map((func)=>{
-				let x_func = func.object.mxCell[0].mxGeometry[0].$.x
-				let y_func = func.object.mxCell[0].mxGeometry[0].$.y
-				console.log(x_func,y_func)
-  			return Promise.all([Promise.resolve(func),extractLogicFromFunction(index,func.object.$.flowio_id, new_id_parent,x_func,y_func)])
-  		})).then((all_funcs)=>{
-  			let dict_small_to_big = all_funcs.map((func)=>{
-  				let cell_small_id = func[0].object.$.id
-  				let logic_func = func[1]
-  				let input_func = logic_func['input_dict']
-  				let output_func = logic_func['output_dict']
-  				let input_small_to_big = input_cells_small.filter((item)=>{
-  					return item.object.mxCell[0].$.parent == cell_small_id
-  				}).reduce((obj,item)=>{
-  					obj[item.object.$.id]=input_func[drawionode.clearText(item.object.$.label)]
-  					return obj
-  				},{})
-  				let output_small_to_big =  output_cells_small.filter((item)=>{
-  					return item.object.mxCell[0].$.parent == cell_small_id
-  				}).reduce((obj,item)=>{
-  					obj[item.object.$.id]=output_func[drawionode.clearText(item.object.$.label)]
-  					//obj[drawionode.clearText(item.object.$.label)]=item.object.$.id
-  					return obj
-  				},{})
-  				//console.log('hei',output_small_to_big,input_small_to_big)
-  				return {...input_small_to_big,...output_small_to_big}
-  			}).reduce((total, item)=>({...total, ...item}),{})
-  			//console.log('dict_small_to_big',dict_small_to_big)
-				//console.log(all_funcs)
-				let new_funcs = all_funcs.reduce((total,item)=>{
-  				return [...total, ...item[1]['blocks']]
-  			},[])
-        let new_funcs_width = all_funcs.reduce((total,item)=>{
-  				return total + item[1]['width']
-				},0)				
-				//create big square:
-  			//console.log(new_funcs)
-				let container_collapsible = drawionode.modifySimpleBlock(collapsible,new_id_parent,root_id,'hola')//posarlhi nom
-				let width_block = parseInt(input_cells[0].object.mxCell[0].mxGeometry[0].$.width)
-				let height_block = parseInt(input_cells[0].object.mxCell[0].mxGeometry[0].$.height)
-				//let width = new_funcs_width+(input_cells.length>0?parseInt(input_cells[0].object.mxCell[0].mxGeometry[0].$.width):0)+(output_cells.length>0?parseInt(output_cells[0].object.mxCell[0].mxGeometry[0].$.width):0)
-				/*let height = Math.max([...input_cells,...output_cells].reduce((acc,item)=>{
-					acc+=parseInt(item.object.mxCell[0].mxGeometry[0].$.height)
-					return acc
-				},0))*/
-				let x_min = [...function_cells_small,...input_cells,...output_cells].reduce((acc,item)=>{
-					let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.x)
-					if (new_x<acc) return new_x
-					return acc
-				},Number.MAX_SAFE_INTEGER)
-				let y_min = [...function_cells_small,...input_cells,...output_cells].reduce((acc,item)=>{
-					let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.y)
-					if (new_x<acc) return new_x
-					return acc
-				},Number.MAX_SAFE_INTEGER)
-				let x_max = [...function_cells_small,...input_cells,...output_cells].reduce((acc,item)=>{
-					let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.x)
-					if (new_x>acc) return new_x
-					return acc
-				},0)
-				let y_max = [...function_cells_small,...input_cells,...output_cells].reduce((acc,item)=>{
-					let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.y)
-					if (new_x>acc) return new_x
-					return acc
-				},0)
-				let width = width_block+x_max-x_min
-				let height = height_block+y_max-y_min
-				container_collapsible.object.mxCell[0].mxGeometry[0].mxRectangle[0].$.x=x-x_min
-				container_collapsible.object.mxCell[0].mxGeometry[0].mxRectangle[0].$.y=y-y_min
-				container_collapsible.object.mxCell[0].mxGeometry[0].$.x=x-x_min
-				container_collapsible.object.mxCell[0].mxGeometry[0].$.y=y-y_min
-				container_collapsible.object.mxCell[0].mxGeometry[0].mxRectangle[0].$.width=width
-				container_collapsible.object.mxCell[0].mxGeometry[0].mxRectangle[0].$.height=height
-        input_cells = input_cells.map((item, index)=>{
-        	return drawionode.modifySimpleBlock(item,null,new_id_parent,null,0,index*item.object.mxCell[0].mxGeometry[0].$.height)
-        })
-        output_cells = output_cells.map((item, index)=>{
-          return drawionode.modifySimpleBlock(item,null,new_id_parent,null,width-item.object.mxCell[0].mxGeometry[0].$.width,index*item.object.mxCell[0].mxGeometry[0].$.height)
-        	//item.object.mxCell[0].$.parent = new_id_parent
-				})
-				
-  			let all_blocks = [container_collapsible,...new_funcs, ...input_cells, ...output_cells]
-  			//console.log('all_blocks',all_blocks)
-  			let all_and_edges = drawionode.findAllAndEdges(result_decompressed, [{'flowio_key':'input_func'},{'flowio_key':'input'},{'flowio_key':'output_func'},{'flowio_key':'output'},{'flowio_key':'output_func'}])
-  			let edges = all_and_edges[1]
-        //console.log(edges.length)
-  			let new_edges = edges.map((edge)=>{
-  				let new_edge = drawionode.removeEdgePoints(edge)
-  				let keystoChange = Object.keys(dict_small_to_big)
-  				if (keystoChange.includes(new_edge.mxCell.$.source)){
-  					new_edge.mxCell.$.source = dict_small_to_big[new_edge.mxCell.$.source]
-  				}
-  				if (keystoChange.includes(new_edge.mxCell.$.target)){
-  					new_edge.mxCell.$.target = dict_small_to_big[new_edge.mxCell.$.target]
-					}
-  				return new_edge
-  			})
-  			return {'input_dict':input_ids,'blocks':[...all_blocks,...new_edges],'output_dict':output_ids, 'width':width}
-  		})
+		//let function_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'function'})
+		/*let input_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'input'})
+		let output_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'output'})*/
+    /*let width_block = parseInt(input_cells[0].object.mxCell[0].mxGeometry[0].$.width)
+    let height_block = parseInt(input_cells[0].object.mxCell[0].mxGeometry[0].$.height)
+    let x_min = [...function_cells_small,...input_cells,...output_cells].reduce((acc,item)=>{
+      let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.x)
+      if (new_x<acc) return new_x
+      return acc
+    },Number.MAX_SAFE_INTEGER)
+    let y_min = [...function_cells_small,...input_cells,...output_cells].reduce((acc,item)=>{
+      let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.y)
+      if (new_x<acc) return new_x
+      return acc
+    },Number.MAX_SAFE_INTEGER)
+    let x_max = [...function_cells_small,...input_cells,...output_cells].reduce((acc,item)=>{
+      let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.x)
+      if (new_x>acc) return new_x
+      return acc
+    },0)
+    let y_max = [...function_cells_small,...input_cells,...output_cells].reduce((acc,item)=>{
+      let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.y)
+      if (new_x>acc) return new_x
+      return acc
+    },0)
+    let width = width_block+x_max-x_min
+    let height = height_block+y_max-y_min
+    //return getCollapsibleFromMxCell(result_decompressed).then((collapsible)=>{
+    /*return [[...function_cells_small,...input_cells,...output_cells],]Promise.all(function_cells_small.map((func)=>{
+			let x_func = func.object.mxCell[0].mxGeometry[0].$.x
+			let y_func = func.object.mxCell[0].mxGeometry[0].$.y
+			//console.log(x_func,y_func)
+			return Promise.all([Promise.resolve(func),extractLogicFromFunction(index,func.object.$.flowio_id, new_id_parent,x_func,y_func)])
+		})).then((all_funcs)=>{
+			let dict_small_to_big = all_funcs.map((func)=>{
+				let cell_small_id = func[0].object.$.id
+				let logic_func = func[1]
+				let input_func = logic_func['input_dict']
+				let output_func = logic_func['output_dict']
+				let input_small_to_big = input_cells_small.filter((item)=>{
+					return item.object.mxCell[0].$.parent == cell_small_id
+				}).reduce((obj,item)=>{
+					obj[item.object.$.id]=input_func[drawionode.clearText(item.object.$.label)]
+					return obj
+				},{})
+				let output_small_to_big =  output_cells_small.filter((item)=>{
+					return item.object.mxCell[0].$.parent == cell_small_id
+				}).reduce((obj,item)=>{
+					obj[item.object.$.id]=output_func[drawionode.clearText(item.object.$.label)]
+					//obj[drawionode.clearText(item.object.$.label)]=item.object.$.id
+					return obj
+				},{})
+				//console.log('hei',output_small_to_big,input_small_to_big)
+				return {...input_small_to_big,...output_small_to_big}
+			}).reduce((total, item)=>({...total, ...item}),{})
+			//console.log('dict_small_to_big',dict_small_to_big)
+			//console.log(all_funcs)
+			let new_funcs = all_funcs.reduce((total,item)=>{
+				return [...total, ...item[1]['blocks']]
+			},[])
+      let new_funcs_width = all_funcs.reduce((total,item)=>{
+				return total + item[1]['width']
+			},0)
+			//create big square:
+			//console.log(new_funcs)
+			let container_collapsible = drawionode.modifySimpleBlock(collapsible,new_id_parent,root_id,'hola')//posarlhi nom
+
+			container_collapsible.object.mxCell[0].mxGeometry[0].mxRectangle[0].$.x=x-x_min
+			container_collapsible.object.mxCell[0].mxGeometry[0].mxRectangle[0].$.y=y-y_min
+			container_collapsible.object.mxCell[0].mxGeometry[0].$.x=x-x_min
+			container_collapsible.object.mxCell[0].mxGeometry[0].$.y=y-y_min
+			container_collapsible.object.mxCell[0].mxGeometry[0].mxRectangle[0].$.width=width
+			container_collapsible.object.mxCell[0].mxGeometry[0].mxRectangle[0].$.height=height
+      input_cells = input_cells.map((item, index)=>{
+      	return drawionode.modifySimpleBlock(item,null,new_id_parent,null,0,index*item.object.mxCell[0].mxGeometry[0].$.height)
+      })
+      output_cells = output_cells.map((item, index)=>{
+        return drawionode.modifySimpleBlock(item,null,new_id_parent,null,width-item.object.mxCell[0].mxGeometry[0].$.width,index*item.object.mxCell[0].mxGeometry[0].$.height)
+      	//item.object.mxCell[0].$.parent = new_id_parent
+			})
+
+			let all_blocks = [container_collapsible,...new_funcs, ...input_cells, ...output_cells]
+			//console.log('all_blocks',all_blocks)
+			let all_and_edges = drawionode.findAllAndEdges(result_decompressed, [{'flowio_key':'input_func'},{'flowio_key':'input'},{'flowio_key':'output_func'},{'flowio_key':'output'},{'flowio_key':'output_func'}])
+			let edges = all_and_edges[1]
+      //console.log(edges.length)
+			let new_edges = edges.map((edge)=>{
+				let new_edge = drawionode.removeEdgePoints(edge)
+				let keystoChange = Object.keys(dict_small_to_big)
+				if (keystoChange.includes(new_edge.mxCell.$.source)){
+					new_edge.mxCell.$.source = dict_small_to_big[new_edge.mxCell.$.source]
+				}
+				if (keystoChange.includes(new_edge.mxCell.$.target)){
+					new_edge.mxCell.$.target = dict_small_to_big[new_edge.mxCell.$.target]
+				}
+				return new_edge
+			})
+			return {'input_dict':input_ids,'blocks':[...all_blocks,...new_edges],'output_dict':output_ids, 'width':width}
+  		*/
     })
-	})
 }
 /*const changeParent=(xml_obj, new_id_parent)=>{
 	let new_xml_obj = {...xml_obj}
@@ -403,7 +437,8 @@ const extractLogicFromFile=(index,file_id)=>{
         let all_blocks = func_extraction['blocks']
         let mxGraph = drawionode.getDiagram(all_blocks, ROOT_ID)
         //console.log(JSON.stringify(mxGraph,null,1))
-      	console.log(drawionode.toString(mxGraph,{headless:true}))
+      	fs.writeFileSync('C:\\Users\\besquirol\\PDU\\prova_func.drawio',drawionode.toString(mxGraph,{headless:true}))
+        console.log('OK')
       })
     }
 	})
@@ -415,7 +450,7 @@ const createMdFile = (index, file_id)=>{
 		let title = drawionode.getClearLabels(drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'name'}))[0]
 		let description =drawionode.getClearLabels(drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'description'}))[0]
 		if (isStudy(result_decompressed)){
-			
+
 		}else if (isDatabase(result_decompressed)){
 
 		}else if (isFunction(result_decompressed)){
@@ -432,7 +467,7 @@ function createDocumentation(index, file_path, flowio_path, depth=1){
 	if(depth>100) return
 	if(fs.lstatSync(file_path).isFile()){
 		let key_lib = path.basename(file_path)
-		if (key_lib.slice(-7)=='.drawio'){			
+		if (key_lib.slice(-7)=='.drawio'){
 			let file_id = fs.lstatSync(file_path).ino
 			//console.log(file_id, file_path)
 			return createMdFile(index,file_id).then((data)=>{
@@ -463,5 +498,5 @@ module.exports={
 		createMdFile:createMdFile,
 		createDocumentation:createDocumentation
 }
-const basics = '<mxlibrary>[{"xml":"dVJNc4IwEP01HO1AouC1QvXSnjz02ImwSGpgaQgF++u7CUF0pj0w7Mt7efuRDXhajwct2uoNC1ABfwl4qhHNFNVjCkoFLJRFwLOAsZC+gO3/YSPHhq3Q0Jg/LuDpE3JDCiVONlnmyFiRdldiY5nOXBU4Jv7qcSZWnfyh02cSRKwdF5Kis/snOyMN3Uyy2ZCyTp5e4UorFQ4SPy5wnbLLpu3NRM1NMAsf+1uKYhr7pgArDcl0qKSBYytyyw40RjqrTG1bi3zpe1FLZbO99rksBLml2HRo/Rx/dJ1l0ZawUPLcEMhpfKDpoDMaL5CiQu3S8yI+xZv4xrzLwlRzMqnUnbIsS5bnt8a/QRsY/32m6K7pA2ANRl9J4i+wJ5bwhMfJZr3mjLMwhlXEJ5fBl0BoOz12WIE8V97YL0Aougmfb+bLWlDgRz1DvygzXBbSSR/29Rc=","w":80,"h":20,"aspect":"fixed","title":"input"},{"xml":"dVJNb4MwDP01OU4KQYPuuMLay3bqYccpBReyBsxCGHS/fk4IpZU2pAjb7/nbLM6aaW9kV79hCZrFLyzODKKdpWbKQGsmuCpZnDMhOD0mdv+gkUd5Jw209g8HPH5CYYmh5dElyz2YaOJuT9g6pLcXDR5JvgZcgIde/ZD1mQiR6KYVJKny/3RrlSXPNF8CUtY5ZmD40k4aR4UfZ7jM2XGw3WBnbOlCOPW+wbUqYXBoS3BUTlHHWlk4dLJw6EhzJFttG9dbFGrfyUZpl+51KFQpKVqGbY8unscPvrU82gQ9Q43G54q5/8gutapashU0VyBw21uDZ7ihPiVpLJMr8q5KWy9FKK1vmBCVj5BeJ/INxsL07/6im2HsARuw5kKUMcQndDOvmNegqjp4hbVz2c96dfVcj4GEMN9FDeexqOsZeurdlf4C","w":80,"h":20,"aspect":"fixed","title":"output"},{"xml":"dVNLU4NADP41HHXobgv1aFsfB51x9ODR2UIKqwvBJbWtv94ElhademBI8uX5JRvpZbW/86YpHzEHF+mbSC89IvVStV+Cc5GKbR7pVaRUzF+kbv9BJx0aN8ZDTWcCcP0OGbGHM2spturAxLHvYoO1IC0dHHRI8rmVNhbO1nBRgi1K1q7ZZcY5ZyecpaL7pwuyxMHpasjJhfu0waPrbuNwZ/HtAw59A5ttnZHFukeHUZSov6c8taa+wJPNjHuQOZ6wtV0CvVojEVZcanC4drYQgLBha0mVTD1hsSWPH/BqcyoHS2kaSd94zKBt2bIrLcFLYzIx73hJbPO4rXPIhxj7LVh8GSeJnqirq1RP0+k8Fsz47KWHE6HXOrdEh74bQOczmOfTYx8jZK7WOpGIjJkzzL0PtYTJW1NZJ7zdg/sCmfBIq0wM+3/vYDLi8w6wAvIHdtkFAoTxpL+VeNi1GNNgM22vF8fQY7ZnPilTF7waFYf6WoewsGI1Dfqo3PxMNfWnmnEEvjYEC2G9HZ8yC6NBTqbuVgY13Pugnt5VHz1+dj8=","w":260,"h":70,"aspect":"fixed","title":"function"},{"xml":"dVNNU4MwEP01uTqQtECPlmovOuPYg0cnwBZiA8uEVVp/vQmBlqo9MJPd995+w0RaH7dGttUzFqCZeGAiNYjkX/UxBa0ZD1TBxIZxHtiP8ccbaDigQSsNNPSPALMPyMkytMxcMkdg8ZoUaWDxxqv3GnuF7wc4eUKOWsu2U5nlDIQpG3fmdSEdnSxrQL/AkMqlfnKpXrBTpLCxUIZEWDOxngj3WpUOIGytt6LaFRbaZ0cGD/CmCqqshztPJVsXvjWYQ9dZT18pgl0rc+fu7Rytz+BnU0AxRVHfDgvuwjjhYrWIo1XExZKL2ILS5DuPR9bKsSGpGjCjdK+0TlGjGToSxRKSYnEubIYkPBORi+AH5DqD49VKxiHC7UWFs2luAWsgc7KUfmzfMXjsZRWoshplkV9wIDtvl2fpOdqr3blsSre+YKyKB8LLxh0nY5RZNh4Gf7OtfmWTmsA0kmDtZt7Nb80+Zo1cXMOlTOZ4kJN5OXyvnv8XPw==","w":127,"h":60,"aspect":"fixed","title":"grouped"}]</mxlibrary>'
+const basics = '<mxlibrary>[{"xml":"dVJNc4IwEP01HO1AouC1QvXSnjz02ImwSGpgaQgF++u7CUF0pj0w7Mt7efuRDXhajwct2uoNC1ABfwl4qhHNFNVjCkoFLJRFwLOAsZC+gO3/YSPHhq3Q0Jg/LuDpE3JDCiVONlnmyFiRdldiY5nOXBU4Jv7qcSZWnfyh02cSRKwdF5Kis/snOyMN3Uyy2ZCyTp5e4UorFQ4SPy5wnbLLpu3NRM1NMAsf+1uKYhr7pgArDcl0qKSBYytyyw40RjqrTG1bi3zpe1FLZbO99rksBLml2HRo/Rx/dJ1l0ZawUPLcEMhpfKDpoDMaL5CiQu3S8yI+xZv4xrzLwlRzMqnUnbIsS5bnt8a/QRsY/32m6K7pA2ANRl9J4i+wJ5bwhMfJZr3mjLMwhlXEJ5fBl0BoOz12WIE8V97YL0Aougmfb+bLWlDgRz1DvygzXBbSSR/29Rc=","w":80,"h":20,"aspect":"fixed","title":"input"},{"xml":"dVJNb4MwDP01OU4KQYPuuMLay3bqYccpBReyBsxCGHS/fk4IpZU2pAjb7/nbLM6aaW9kV79hCZrFLyzODKKdpWbKQGsmuCpZnDMhOD0mdv+gkUd5Jw209g8HPH5CYYmh5dElyz2YaOJuT9g6pLcXDR5JvgZcgIde/ZD1mQiR6KYVJKny/3RrlSXPNF8CUtY5ZmD40k4aR4UfZ7jM2XGw3WBnbOlCOPW+wbUqYXBoS3BUTlHHWlk4dLJw6EhzJFttG9dbFGrfyUZpl+51KFQpKVqGbY8unscPvrU82gQ9Q43G54q5/8gutapashU0VyBw21uDZ7ihPiVpLJMr8q5KWy9FKK1vmBCVj5BeJ/INxsL07/6im2HsARuw5kKUMcQndDOvmNegqjp4hbVz2c96dfVcj4GEMN9FDeexqOsZeurdlf4C","w":80,"h":20,"aspect":"fixed","title":"output"},{"xml":"dVNLU4NADP41HHXobgv1aFsfB51x9ODR2UIKqwvBJbWtv94ElhademBI8uX5JRvpZbW/86YpHzEHF+mbSC89IvVStV+Cc5GKbR7pVaRUzF+kbv9BJx0aN8ZDTWcCcP0OGbGHM2spturAxLHvYoO1IC0dHHRI8rmVNhbO1nBRgi1K1q7ZZcY5ZyecpaL7pwuyxMHpasjJhfu0waPrbuNwZ/HtAw59A5ttnZHFukeHUZSov6c8taa+wJPNjHuQOZ6wtV0CvVojEVZcanC4drYQgLBha0mVTD1hsSWPH/BqcyoHS2kaSd94zKBt2bIrLcFLYzIx73hJbPO4rXPIhxj7LVh8GSeJnqirq1RP0+k8Fsz47KWHE6HXOrdEh74bQOczmOfTYx8jZK7WOpGIjJkzzL0PtYTJW1NZJ7zdg/sCmfBIq0wM+3/vYDLi8w6wAvIHdtkFAoTxpL+VeNi1GNNgM22vF8fQY7ZnPilTF7waFYf6WoewsGI1Dfqo3PxMNfWnmnEEvjYEC2G9HZ8yC6NBTqbuVgY13Pugnt5VHz1+dj8=","w":260,"h":70,"aspect":"fixed","title":"function"},{"xml":"dVLLcsMgDPwa7gb/gd00p17a3DNKrNq0PDxYje18fSGAQzrNgRlJu9IuAla3etk7GIc326Fi9Y7VrbOWYqSXFpViopIdq1+YEJU/TLw+QfkNrUZwaOifBnv6wjN5hoJTEAuEg0P0ldYaAmnQxRGfys7SHr9xjazzI5wFRUgfvUy0KozoNEutwPisGUgHPe7DicDRh7wGkrfnMevkNczPjE3ssI6BRcFi3UTpCzrC5el9eeFoj1YjudVTZtnRkDynnVQDyn7IbTwVYYqFfuvdxr373YHpVVhXMiByW1oTr1Je6G2jSz3xRw4UoTNA2Ngf003lo/mguMq9dNt3TtPL5vT+g2J3+cF+AQ==","w":220,"h":110,"aspect":"fixed","title":"container"}]</mxlibrary>'
 const flowio_lib = '<mxlibrary>[{"xml":"dVFBcoMwDHyN74CTJr2WNDn1lAd0jBHYjUGMUQr09ZUxNMlMc/CMVrtrrWUh82Y8edWZDyzBCfkuZO4RKVbNmINzIktsKeRBZFnCR2THJ2w6s0mnPLT0jwGLL9DECqeKMCwIevK2raOxcjhY/LzAFDmjfKk5VxnpdUwW4GOCniYHkfV4bYNFHhIh3wZjCc6d0oEd+KHcM9SE4SmXlXUuR4d+9spqr0Fr7nMqvMAdU+y3m224sMKWzvYnXJe+MI7RvsETjE+3kN4lPgE2QH5iyWBLMosieY02A7Y2i22ziz3VR1z/WW875WLZwgqXLa/w9puz9OGzfwE=","w":109,"h":47,"aspect":"fixed","title":"hardcoded block"},{"xml":"7VlNc6M4EP01rj0lBQj8cYztZPaQ2Z3abNUeUzLIoEQgR4g4nl+/3SCMAZnYG2dmD0M+jLolIfV7PLXkEVmkb18U3SRfZcTEiNyOyEJJqau79G3BhBh5Do9GZDnyPAf+Rt7dEa9bep0NVSzTlgZy9cRCDTUEXeHDlqVzLKDufC0z9OR6J1jpGb8UsnZc5fw7WG+ggudv3hon3MX4mcm07gieVvVVeaohrYXccvn4zHbVUzOasspTj93DYntazVg8JYssYljVgT63CdfsYUND9G4hemBLdIozcnHEXIiFFFKVbcnKjaI1Nsu1ks/swOM6EzJj+0G+MqXZ29FQugcj/MJkyrTaQZW6waQKtbPlkU4q22RqbAnjcWK6GRsbzatyvO+qAQpuTBTqooHuKIyq0CzHXtFc3vGU6hjvbPHfJFLLR8Gz57wNAxmEId/yVNCMGVo8GA8GN0y4iO7pThY4z1zT8LkuzROp+HeoT2uEwK30Q8mpJSF9yNYB/rRaPmCP5lmKIR+/1di4HdNX+taqeE9zXY9SCkE3OV+V48aGKVUxz+ZSa6BwVanHk3F5mUkf2KurDkY1HRfrIZN4SMWN4HEGxpRHkbgQ0YLAEMhAOZ32eOc7Ft5NPoV3o2B+DdUAoOunTTwKlkN821AYYYtu/iDdIEjahodTXh3aZLLkJTUhF2yth5DIQT54Ft+X1ZZ+Y/nLhAxNEprjVKCYQEOWIaekppqu9sTfSJ7pMqbBHH4hygvnOigjsYCy25ThF6sroFAGc6K8BJwBO7cs1316Oc5sdnfXeddwWBHNk1IM3Q73/FMpRuwUM2gRchqlyOQzKBWxPFR8E3IJ9oih8zeITxFxfNRLMVqQ0c0Rnpm2msusTbTggsvLMRE4omHDcnIoGx9Rh1oNghPVYPxR6HrZh+nxlYqCtXOLxG2ygVa2Ee6D0iQU9dt9YLJkJbB0sat6QpiXuNgk6Gcmt/lLwVJcFsFCU8Sy+l89vkgzXCOPpC578+EMPKtIHRDkLL0yqgOGoCn9LWGEyyvvGBvtunTI4UGJOKYztXaGQDamUKyY4kALph72o3RN59+oBntWWjzH/6xFr1Ykx7/uM3vmXya/sqnQnVQla2DYOUfJmYMoOinP+BomGVG7/uQJ3bDHEDMWIKhqa9Dk1NzqAlkCcdpZgjvph494lvC5zofzhJ4yTC3K0HmLysAh9aiKTpPgO5pygbP7nYlXhszrMN2zMfr4HqDy/GPC4w3sIxp4q9GcBNdkEC63Axfpo+Xa0LoQ2TuyvK7i3ojpQhaKI52dP9i2r7F6h9jd4Bq9O2sbiA0fTbPDN2U2vFonMl0V+dkbwTWNZpF1RabMd4l3mTfP6+8DLwXde++Z6/TeKxbFrE4dIfNMZCwzKm4ba2fdaOrcy3IRwjg+Ma135rWihZbtKFfPxAe1IpYDZ8LaZGyw7YtZHUXv5MgqJqjmr+3+P0x5a/6IqT3NO2cT7uG4LMpda9cOspKolJl3iLmqYn6/2htgcxuXSPxZaMxtjjJ4QkMbg1f+OHBOTv/f2WHO2lo0s629Ywulp5+zxRxE6jGVESzJQOA2ZMPnST8OMqg2jYgNMo/4fhBdBrIp+XmY9WWI9Nb7JtM2OzpMrTL5ih/Lfk79GedM3tiegP+UI6ZLZHhT53p2cAVBiwGBM2u5+6dEZpntpn/+2XzoE8C3EcDtwWw93zGwnH+0o3G9+l+e65yG9vCZTL29fg9A7/yNfR+/wIZfP2n/hd/p+AXeD8SvfxQD+JFf+H0Av8mJAvof8INi85Vf6Wt9I/gv","w":950.0000000000002,"h":614.0000000000003,"aspect":"fixed","title":"study"},{"xml":"7ZhLc+I4EMc/jY9J2fIDOAbYzB4yu1ObrdpjStgCayNLHlkOMJ9+W7L8woJhBmpP45CK1Xq41b9/txy8cFUcPklc5p9FRpgX/uaFKymEau6Kw4ow5iGfZl649hDy4ddDz2d6A9Prl1gSrhwTxOZfkioYwfBGP2xtOhMGY5dbwXXPFqfEdCRfa+3FciVqSYmErj/IvjfD3U7/VccSxj9lWOENrki7GjyyWbAZ1fi1ZWJPxds7OTaP1nPf+plosBOkm+NNVurIGteQzEWxqStYeJ9TRV7Lxuk9xBFsuSr03gK9KcrYSjAhzbxwi7NFFoO9UlK8k0EPJlEQos7TDyIVOZwNajDw7hMRBVHyCEPsBOQ/IjRDKA6SWRT4s3mzwJ5mKrfzLRY/J3SX20UTa8NV0951C/cA4cbGo21apNfi7YPYgtQdDxX9pinCABSVhyllLoofIstxcQI0vAxU1Dwjeqj/M1BnOHVB3URJ7Ef3gRrM/AnG2fx/w5iRKpW0TKkAe0ZMp77rksfHX2tvFXpPazcRu4Cigr9ta56O6UR3pAPiGDBoLge1WP+4qCXmsiu9GmGug+RGijYK83gCMfIdEGfJrRAntdk++QOzmoxTMw/6ZBola9oFpc/H0DfX0ORIakY5eWg3pNM60FPiaWJD3OuCk+psdnfmoZdorA/gocYimEC1Xo9lwAUnejBoifIdGOK+9bcAXa0f0DnFCdCB1jhYcpplhINtrNMMV7lpBCdaiqYq9f3F4hm4LjGjO1hqnYKg4NALlyWRFNAT+dp5GdjFv2AFdm4syNQZrU2aYvZkVynAMx2ke0gXhYvHqXoX0X1KkKvmPAtZ4MbtiurasoQi7heU0y1sMsPuQlPlGE71FOKLQYRyXGeSi3Wm2tOCYX5rwOyEJLRhaHM/elwMrvliEszQdSwH/s0FfVILZo5acJJTJoxaiEfI5cxI8TuFd9Oo/2XTGXD6vjM58WetdEUY5MIzLijTgfmdsA+iRXuSJMiVDOdP2KbnHxtLdOGUvopscpFsh8SSDad5ca83rAm6+QRd2pXQU4S9nE1kbY+uTWlOWfaCj6LWrlUKSLWtZS4k/abTpy+mWLZcUOKuof2kV72YfYwk+sXuSxvY4MT0GR9GA19wpVoHBWO4rOiGtaopsNxRvhRKwbtgM+gOSRrGJyjbVBiwhCrnSsvodpgLF8zg3Pk2Vr8NvINFmzaMbJXjUFD6ZGuPuRczZh31lr/sHqOzh5zSL32dlEpBuTIxiJfwgXCufDgoYnB8Be2gb8NHD5dw8HHYC5Rn/RwC0PekUtfynF8+pZLr8KEff8Ga/rfru/BNS+kvfFfji6/MvrvgC1z4wl/4fh6f46uGe+GDZv+1lOkbfWv1Hw==","w":950,"h":426.0000000000002,"aspect":"fixed","title":"database"},{"xml":"xVjbcuI4EP0aPyblO/AYSJh9yGylNlu1j5SwBVYiWx5JDjBfvy1ZxjaWKWbjzBKoWK17n6PTbTnBKj9+46jMvrMUUyd4coIVZ0zWT/lxhSl1fJekTvDo+L4LP8dfj9R6utYtEceFvKWDX3cQ8kRxbcHpHr+aIuMyY3tWIPrUWpecVUWK1QAulNo2z4yVYPTA+IalPL2Sn2oQVEkGpkzm1NTuWCFXjDKuZwxcd7FYr43ddPJiKNdrUwvq7U6wiifGtKhNEvE9NhsOhz7QHY0DvmGWY8lP0IRjiiT56I+ORF3cn9udu74wAiP67tF0iGvfuiczsR/eR/1B6qWafi0MD5yjU6dZqRqI8ZnC+dhM6//aAx7qVTSljmdak2aLLrLtG07UBBRtFU0f9WAxlQa3HoniHxVrKu6ERvQBGvhheWwr4Wmv/hcsbwaCOeux6pp6BzvKDoRt3rHZSoFyXNc0JA46njP87hC6T9dDRiR+LZEm0AHO3QU1CaUdaqYRnqch2IXk7B13aub+Nohbkn5gLvHRGTuEIwRsOswMWAeSyqy2zRoAM0z2mRmmIZyNox1gu7hB0UA3CqOAI0xStPHs/maVLCu52VVF0nd7OJ3bUyQy3daCAfYAhZkNg0U8C1A8KhyfwmTu9g9QsDgf7g5KXvjbUOKVxEKNqsz6ieRI7rGwo1ZmTLINJcW76KMWXUVNHEhOUYEbp5oaBWGSEZo+oxPwASxCouS9KS0zxslPaI8aQKGaN5AEwRDUXaT+ej1f1YhmLo6Varw0aHkXpu/o2Gv4jIRsVskoRaUgW71u1TGH2ECKJZMShKZuNGBSrD/D0FR/LAxT3CIJog+U7Asw5iRNdXCcgHpR1KfefD7gXehaeDf7Et450fIemgFA92/l3oker/GtRLDCHt3iq3QDJ0kbHq7+XNCmYJqXyLic4p28hoQAtSHF/lk3ewxby1/GZcrEoLvaChQz6IgLnd9IJNH2THwTnWFh0RK+4OWVC1qgPLGCsteW4auac6BQAXtCRAOOgZ0HLOSQXv3Mx7glHOhhh3vhrRSL7BRr1Cy4jVLB7CsolWKRcFImhIE9xbpSUQoiDHFWgbMM1JQ/KvX8MMI3M4YkrLCEptmEGcGYIowI2nVtmSpKNdIwDEl2aYg/i+PgzcGI0geiFe6ng5nXJnC9BDE5O6XNAZuj3jFZEkmIY/iu2ZBKJT3VJRomk0/iR4VzNJpQns3dRfpWUepw4Jf0yagMGKK29Ld+Nbrzxwhn16EuTa9KwpiuNFqZAJ8wV+KEOQHkMX89r7LJv16QBHuhLb4bflWQaxTIteVTi4nyKZvqwMI4SpFdTkhhz3EXvyfH3e12fpLYmJbG2zj6IvX433PaNePqrKpdiFb5c1KQHfBuDCuRoRJvEpU0gizwPmCee2t+O0GmFly8JHizoTsD3+JOz/20P4d3P55FkS+krTnRzwqDFyaIip9QtTXZ8eDIS1bapPAfsz9fWRQc8FxylmAhRg5Ce1T0KDWR3XutXognhtkN0dcoJ1Q59Q9MP7Ba0cUJ8G2iZzR5IHrjL+9jr/u3ccO9Sg7Pu3iDtBw1GzcmkruL2LtDST+krljFiTo97p/4MAyk8qRAfVCKqDnyKzc0qu+m7dk7nv51Qc1Yvq3GODR+T7ND6SK1Zl8Ih17gT3Pc/eE1zVQI3iCWN8avDSvlhc8nvB+7HsRwPBLEZottnS5NH8RCy+XZF4UwKLY38/WVaffi/l8=","w":950,"h":530,"aspect":"fixed","title":"function"}]</mxlibrary>'
