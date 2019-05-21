@@ -236,6 +236,8 @@ const getCollapsibleFromMxCell = (result_decompressed,width_big=null,height_big=
 	})
 }
 const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0, padding_top=20)=>{
+
+	console.log('hola')
 	return readDiagram(index[file_id]).then((result_decompressed)=>{
 		let input_ids = {}
 		let output_ids = {}
@@ -268,10 +270,23 @@ const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0, paddi
       let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.y)+parseInt(item.object.mxCell[0].mxGeometry[0].$.height)
       if (new_x>acc) return new_x
       return acc
-    },0)
+		},0)
+		
+		let width_total =  x_max-x_min
+		let height_total =  padding_top+y_max-y_min
+		let func_logic = function_cells_small.reduce((acc,func)=>{
+			return acc[acc.length-1].then((result)=>{
+				let x_func = result['x']
+				let y_func = result['y']
+				let width = result['width']
+				return [...acc,extractLogicFromFunction(index,func.object.$.flowio_id,ROOT_ID,x_func+width, y_func)]
+			}) 
+		},[Promise.resolve({'x':x, 'width':0, 'y':y+height_total})])
+		console.log('hey',JSON.stringify(func_logic))
     return promise_container.then((container)=>{//x=null, y=null,width=null, height=null
-      console.log(padding_top)
-      let container_modified = drawionode.modifySimpleBlock(container[0], new_id_parent, root_id, title, x, y, x_max-x_min,padding_top+y_max-y_min)
+			console.log(padding_top)
+
+      let container_modified = drawionode.modifySimpleBlock(container[0], new_id_parent, root_id, title, x, y, width_total, height_total)
       input_cells = input_cells.map((item, index)=>{
         let geo = drawionode.getGeometry(item)
       	return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
@@ -286,7 +301,7 @@ const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0, paddi
       })
       let all_and_edges = drawionode.findAllAndEdges(result_decompressed, [{'flowio_key':'input_func'},{'flowio_key':'input'},{'flowio_key':'output_func'},{'flowio_key':'output'},{'flowio_key':'output_func'}])
 			let edges = all_and_edges[1]
-      return {'blocks':[container_modified,...input_cells_small,...output_cells_small,...edges,...input_cells,...output_cells,...function_cells_small]}
+      return {'x':x,'y':y,'width':width_total, 'height':height_total,'blocks':[container_modified,...input_cells_small,...output_cells_small,...edges,...input_cells,...output_cells,...function_cells_small]}
       //container_modified.object.$.label=title
       //console.log(JSON.stringify(container_modified))
       //container_modified.mxCell.$.value=title
@@ -328,6 +343,7 @@ const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0, paddi
     let width = width_block+x_max-x_min
     let height = height_block+y_max-y_min
     //return getCollapsibleFromMxCell(result_decompressed).then((collapsible)=>{
+			//HERE
     /*return [[...function_cells_small,...input_cells,...output_cells],]Promise.all(function_cells_small.map((func)=>{
 			let x_func = func.object.mxCell[0].mxGeometry[0].$.x
 			let y_func = func.object.mxCell[0].mxGeometry[0].$.y
@@ -416,6 +432,7 @@ const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0, paddi
 
 }*/
 const extractLogicFromFile=(index,file_id)=>{
+	
 	if (!index[file_id]) return
 	return readDiagram(index[file_id]).then((result_decompressed)=>{
 		if (isStudy(result_decompressed)){
@@ -433,7 +450,7 @@ const extractLogicFromFile=(index,file_id)=>{
 			//console.log(JSON.stringify(mxGraph,null,1))
 			//console.log(drawionode.toString(mxGraph,{headless:true}))
 		}else if(isFunction(result_decompressed)){
-      extractLogicFromFunction(index, file_id).then((func_extraction)=>{
+			extractLogicFromFunction(index, file_id).then((func_extraction)=>{
         let all_blocks = func_extraction['blocks']
         let mxGraph = drawionode.getDiagram(all_blocks, ROOT_ID)
         //console.log(JSON.stringify(mxGraph,null,1))

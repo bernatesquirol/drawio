@@ -59,6 +59,7 @@ function loadLocalLibraries (win,query){
 			flowio.importLocalLibraries(importlocallib, file_path, file_path, null)
 			let index = flowio.createFileIndex(file_path).then((index)=>{
 				//3659174697640273
+				
 				//flowio.createDocumentation(index,file_path,file_path)//.then((data)=>console.log(data))
 				flowio.extractLogicFromFile(index,'3659174697640273')//.then((data)=>console.log(data))//(53198770598448880) (35184372089326284) 46443371157363740
 			})
@@ -100,6 +101,7 @@ function createWindow (opt = {})
 	}, opt)
 
 	let mainWindow = new BrowserWindow(options)
+	//mainWindow.maximize()
 	windowsRegistry.push(mainWindow)
 
 	console.log('createWindow', opt)
