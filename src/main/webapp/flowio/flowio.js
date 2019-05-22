@@ -113,7 +113,7 @@ function importLocalLibraries(loadLocalLibrary, file_path, original_file_path, b
 		}
 		if (key_lib.slice(-7)=='.drawio'){
 			let file_id = fs.lstatSync(file_path).ino
-			//console.log(file_id, file_path)
+			console.log(file_id, file_path)
 			let result = readDiagram(file_path).then((result_decompressed)=>{
 				let xml_data = null
 				if (isFunction(result_decompressed)){
@@ -237,7 +237,6 @@ const getCollapsibleFromMxCell = (result_decompressed,width_big=null,height_big=
 }
 const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0, padding_top=20)=>{
 
-	console.log('hola')
 	return readDiagram(index[file_id]).then((result_decompressed)=>{
 		let input_ids = {}
 		let output_ids = {}
@@ -249,8 +248,10 @@ const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0, paddi
     let input_cells = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'input_func'})
 		let output_cells = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'output_func'})
     let function_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'function'})
+
     let input_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'input'})
 		let output_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'output'})
+    console.log(function_cells_small,input_cells_small,output_cells_small)
     let x_min = [...function_cells_small,...input_cells,...output_cells].reduce((acc,item)=>{
       let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.x)
       if (new_x<acc) return new_x
@@ -271,18 +272,23 @@ const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0, paddi
       if (new_x>acc) return new_x
       return acc
 		},0)
-		
+
 		let width_total =  x_max-x_min
 		let height_total =  padding_top+y_max-y_min
-		let func_logic = function_cells_small.reduce((acc,func)=>{
+    //cascade of promises
+		let func_logic_promises = function_cells_small.reduce((acc,func)=>{
+      console.log(acc, acc[acc.length-1], func)
 			return acc[acc.length-1].then((result)=>{
 				let x_func = result['x']
 				let y_func = result['y']
 				let width = result['width']
 				return [...acc,extractLogicFromFunction(index,func.object.$.flowio_id,ROOT_ID,x_func+width, y_func)]
-			}) 
+			})
 		},[Promise.resolve({'x':x, 'width':0, 'y':y+height_total})])
-		console.log('hey',JSON.stringify(func_logic))
+		console.log('hey',JSON.stringify(func_logic_promises))
+    /*return Promise.all(func_logic_promises).then((all_funcs)=>{
+
+    })*/
     return promise_container.then((container)=>{//x=null, y=null,width=null, height=null
 			console.log(padding_top)
 
@@ -432,7 +438,7 @@ const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0, paddi
 
 }*/
 const extractLogicFromFile=(index,file_id)=>{
-	
+
 	if (!index[file_id]) return
 	return readDiagram(index[file_id]).then((result_decompressed)=>{
 		if (isStudy(result_decompressed)){
