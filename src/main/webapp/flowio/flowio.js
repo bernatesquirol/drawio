@@ -28,8 +28,6 @@ const createMinimizedFunctionCell = (basics_lib_path, inputs, outputs, flowio_id
 			let input_blocks = inputs.map((input_text, index)=>(drawionode.modifySimpleBlock(block_o=input,id='input-'+guidGenerator(),id_parent=real_func_id, input_text, x=padding_side, y=index*(Number(geo_input.height)+top_padding)+top_padding)))
 			let output_blocks = outputs.map((output_text, index)=>(drawionode.modifySimpleBlock(block_o=output,id='output-'+guidGenerator(),id_parent=real_func_id, output_text, x=2*padding_side+Number(geo_input.width), y=index*(Number(geo_output.height)+top_padding)+top_padding)))
 			if(mxCell_func_style){
-				//console.log(JSON.stringify(func.object.mxCell,null,2))
-				//console.log(JSON.stringify(explicitChildrenToNot(mxCell_func),null,2))
 				func.object.mxCell[0].$.style=mxCell_func_style
 			}
 			//console.log(geo_func.width,geo_input.width, geo_output.width)
@@ -294,15 +292,15 @@ const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0, paddi
 
       let container_modified = drawionode.modifySimpleBlock(container[0], new_id_parent, root_id, title, x, y, width_total, height_total)
       input_cells = input_cells.map((item, index)=>{
-        let geo = drawionode.getGeometry(item)
+        let geo = drawionode.getGeoSimpleBlock(item)
       	return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
       })
       output_cells = output_cells.map((item, index)=>{
-        let geo = drawionode.getGeometry(item)
+        let geo = drawionode.getGeoSimpleBlock(item)
         return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
 			})
       function_cells_small = function_cells_small.map((item, index)=>{
-        let geo = drawionode.getGeometry(item)
+        let geo = drawionode.getGeoSimpleBlock(item)
         return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
       })
       let all_and_edges = drawionode.findAllAndEdges(result_decompressed, [{'flowio_key':'input_func'},{'flowio_key':'input'},{'flowio_key':'output_func'},{'flowio_key':'output'},{'flowio_key':'output_func'}])

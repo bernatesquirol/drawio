@@ -3,30 +3,44 @@ const xml2js = require('./xml2js/xml2js');
 const pako = require('./pako');
 const ROOT_ID = 1
 const fs = require('fs')
-//stackoverflow
-String.prototype.formatUnicorn = function (){
-  var d=this.toString();
-  if(!arguments.length)return d;
-  var a=typeof arguments[0],a="string"==a||"number"==a?Array.prototype.slice.call(arguments):arguments[0],c;for(c in a)d=d.replace(RegExp("\\{"+c+"\\}","gi"),a[c]);return d}
-  const compress = function(a, c) {
-      if (null == a || 0 == a.length || "undefined" === typeof pako)
-          return a;
-      var d = bytesToString(pako.deflateRaw(encodeURIComponent(a)));
-      return encode(d)
-}
 
-const encode = function(text){
-  return Buffer.from(text, 'binary').toString('base64')
+/**
+ * Encodes a graph to a base64 compressed text
+ * @param  {String} graph_string graph string to encode in base64, typically: <mxGraphModel><root>...</mxGraphModel
+ * @return {String}              decoded text
+ */
+const encode = function(graph_string){
+  return Buffer.from(graph_string, 'binary').toString('base64')
 }
-const decode = function(text){
-  return Buffer.from(text, 'base64')
-  }
+/**
+ * Decodes a a text from base64 to plain text
+ * @param  {String} base64_text text to encode in base64, typically: ASDFIEWQRNFSDVAFHDSA=
+ * @return {String}             encoded text
+ */
+const decode = function(base64_text){
+  return Buffer.from(base64_text, 'base64')
+}
+/**
+ * decompress: extracted from drawio JS files
+ */
 const decompress = function(a, c) {
     if (null == a || 0 == a.length || "undefined" === typeof pako)
         return a;
     var d = decode(a);
     return zapGremlins(decodeURIComponent(bytesToString( pako.inflateRaw(d))))
 }
+/**
+ * compress: extracted from drawio JS files
+ */
+const compress = function(a, c) {
+  if (null == a || 0 == a.length || "undefined" === typeof pako)
+      return a;
+  var d = bytesToString(pako.deflateRaw(encodeURIComponent(a)));
+  return encode(d)
+}
+/**
+ * zapGremlins: extracted from drawio JS files
+ */
 const zapGremlins = function(a) {
     for (var c = [], d = 0; d < a.length; d++) {
         var b = a.charCodeAt(d);
@@ -34,157 +48,162 @@ const zapGremlins = function(a) {
     }
     return c.join("")
 }
+/**
+ * bytesToString: extracted from drawio JS files
+ */
 const bytesToString = function(a) {
     for (var c = Array(a.length), d = 0; d < a.length; d++)
         c[d] = String.fromCharCode(a[d]);
     return c.join("")
 }
 
-
-const getChildren = function(root){
-  let values = Object.values(root)[0]
-  let children = Object.keys(values).filter((key)=>key!='$')//
+/**
+ * Gets children from a given mx_obj
+ * @param  {Object} mx_obj {mxObject: {$:{...},mxType1:[{...}, {...}]}
+ * @return {Array[Object]}        [{mxType1:{...}},{mxType1:{...}},{mxType2:{...}},...]
+ */
+const getChildren = function(mx_obj){
+  //seleccionem {$:{...},mxType:[ Object object ], ...}
+  let values = Object.values(mx_obj)[0]
+  //seleccionem {mxType:[ Object object ], ...}
+  let children = Object.keys(values).filter((key)=>key!='$')
   if (children==null) return null
   let real_children = []
   children.forEach((nodeType)=>{
-    if(!Array.isArray(values[nodeType])){
-      console.log(root)
-      console.log(Object.values(root),values[nodeType])
-    }
+    //if(!Array.isArray(values[nodeType])) console.log(mx_obj)
+    // iterem per l'array d'objectes i retornem cada item individualment
+    // (desagrupemBy el tipus)
     values[nodeType].forEach((real_child)=>{
       let obj = {}
+      //{mxType:{...}}
       obj[nodeType]={...real_child}
       real_children.push(obj)
     })
   })
   return real_children
 }
-
-const getProps = function(root){
-  let values = Object.values(root)[0]
-  if (Array.isArray(values)){
-    return values[0].$
-  }
+/**
+ * Gets props ($) from a given mx_obj
+ * @param  {Object} mx_obj {mxObject: {$:{...},mxType1:[{...}, {...}]}
+ * @return {Object}        {...}
+ */
+const getProps = function(mx_obj){
+  let values = Object.values(mx_obj)[0]
+  if (Array.isArray(values))console.log('NO EH!!!!')
   return values.$
-
 }
-const findChildren = function(root, filter_func){
-  if (root==null) return null
-  let props = getProps(root)
+
+/**
+ * Recursive method to get the children of an mx_object, props of whom satisfy the filter_func
+ * @param  {Object} mx_obj {mxObject: {$:{...},mxType1:[{...}, {...}]}
+ * @param  {function} filter_func function(props){ return true/false }, 
+ *                           returns true or false given the props of the item 
+ * @return {Array[Object]}        [{mxType1:{...}},{mxType1:{...}},{mxType2:{...}},...]
+ */
+const findChildren = function(mx_obj, filter_func){
+  if (mx_obj==null) return null
+  let props = getProps(mx_obj)
   if (props!=null){
     if (filter_func==null | filter_func(props)) {
-      return [root]
+      return [mx_obj]
     }
   }
-  let children = getChildren(root)
-
+  let children = getChildren(mx_obj)
   if (children==null || children.length<1) return null
+  // flatmap fa un map (executa per tot item d'un array) i un flatten (es carrega les llistes de llistes)
   let return_value = _.flatMap(children,(child)=>findChildren(child,filter_func)).filter((child)=>child!=null)
   return return_value
 }
-/*const findRelated=(xml_obj, id_related, all_related=[], already_seen={})=>{
-  if (id_related==null || already_seen[id_related]) return [all_related, already_seen]
-  let new_already_seen = {...already_seen}
-  let new_all_related = [...all_related]
-  let filter_related = (id_to_find)=>{
-    return function(props){
-      return props.parent==id_to_find || props.target==id_to_find || props.source==id_to_find
-    }
-  }
-  //G7s1vNpVQt0JP-xVj_gy-33
-  new_already_seen[id_related]=true
-  let sons_and_connected = findChildren(xml_obj, filter_related(id_related))
-  //console.log(getProps(xml_obj),filter_related(id_related)(gtProps(xml_obj)))
-  //console.log(sons_and_connected)
-  let id_to_search = sons_and_connected.map((item_dic)=>{
-    let item = Object.values(item_dic)[0]
-    if(item.$.target==id_related){
-      return [item.$.id, item.$.source] //afegim edge i busquem l'altre punta
-    }else if(item.$.source==id_related){
-      return [item.$.id, item.$.target] //afegim edge i busquem l'altre punta
-    }
-    return [item.$.id,item.$.parent] //afegim fill i busquem dins
-  }).flat()
-  if(id_related=='EbFoM5QjGcWt9suONcQ1-1'){
-    console.log('OJU!!! ',JSON.stringify(sons_and_connected,null,1))
-  }
-  let him_list = findChildrenValueFilter(xml_obj, {'id':id_related})//[0]
-  new_all_related.push(him_list[0])
-  //let him_id = Object.values(him_list[0])[0].$.parent
-  let children_parents = [...getChildren(him_list[0]),him_list[0]].map((val)=>{
-    console.log(val)
-    console.log(Object.values(val)[0])
-    return Object.values(val)[0].$.parent
-  })
 
-  console.log('cd_pt',children_parents)
-  console.log('ids',id_to_search)
-  id_to_search = [...id_to_search,...children_parents].filter((val)=>val!=null&&val!=ROOT_ID)
-  //console.log('children',children)
-  //let ids_children = children.p.map()
-  //if xml_obj.$.parent
-  //EbFoM5QjGcWt9suONcQ1-1
-  //
-
-  console.log('ids',id_to_search)
-  let recursive_step = id_to_search.forEach((id_item)=>{
-    let result = findRelated(xml_obj, id_item, new_all_related, new_already_seen)
-    console.log('result', result)
-    new_all_related = result[0].flat()
-    new_already_seen = result[1]
-  })
-  return [new_all_related, new_already_seen]
-}*/
-
-const findEdges=(xml_obj,all_blocks,edge_origin='target')=>{
-  let all_ids = all_blocks.map((block)=>{
-    return Object.values(block)[0].$.id
-  })
-  let filter_edges = (all_ids)=>{
-    return function(props){
-      return props[edge_origin]!=null && all_ids.includes(props[edge_origin]) //|| all_ids(props.source==id_to_find=)
-    }
-  }
-  let edges = findChildren(xml_obj, filter_edges(all_ids))
-  return edges
-}
-
-const findAllAndEdges=(xml_obj, list_of_filters, edge_origin='target')=>{
-  let all_blocks = list_of_filters.map((filter)=>{
-    return findChildrenValueFilter(xml_obj,filter)
-  }).flat()
-  let edges = findEdges(xml_obj,all_blocks,edge_origin)
-  return [all_blocks,edges]
-}
-const findChildrenValueFilter = function(root, obj_filter={}){
-  return findChildren(root, (props)=>_.reduce(obj_filter,(result, value, key) =>
+/**
+ * findChildren with given properties
+ * @param  {Object} mx_obj {mxObject: {$:{...},mxType1:[{...}, {...}]}
+ * @param  {Object} obj_filter {key:value,...} all the desired key_value pairs the block props have to satisfy
+ * @return {Array[Object]}        [{mxType1:{...}},{mxType1:{...}},{mxType2:{...}},...]
+ */
+const findChildrenValueFilter = function(mx_obj, obj_filter={}){
+  return findChildren(mx_obj, (props)=>_.reduce(obj_filter,(result, value, key) =>
   (result && props[key]==value),true))
 }
 
+/**
+ * Get the edges from/to to certain blocks
+ * @param  {Object} mx_obj {mxObject: {$:{...},mxType1:[{...}, {...}]}
+ * @param  {Array[Object]} all_blocks the blocks where the edges will begin or end
+ * @param  {String} edge_origin can be either 'target' or 'source'
+ * @return {Array[Object]}        [{mxType1:{...}},{mxType1:{...}},{mxType2:{...}},...]       
+ */
+const findEdges=(mx_obj,all_blocks,edge_origin='target')=>{
+  let all_ids = all_blocks.map((block)=>{
+    return Object.values(block)[0].$.id
+  })
+  //la funcio que filtre els edges
+  let filter_edges = (all_ids)=>{
+    return function(props){
+      return props[edge_origin]!=null && all_ids.includes(props[edge_origin]) //|| all_ids(props.source==id_to_find)
+    }
+  }
+  let edges = findChildren(mx_obj, filter_edges(all_ids))
+  return edges
+}
+/**
+ * Get the blocks and the edges given a list of object_filters
+ * @param  {Object} mx_obj {mxObject: {$:{...},mxType1:[{...}, {...}]}
+ * @param  {Array[Object]} list_of_filters list of objects of filters (filter1 OR filter2)
+ * @param  {String} edge_origin can be either 'target' or 'source'
+ * @return {Array[Object],Array[Object]}        blocks, edges       
+ */
+const findAllAndEdges=(mx_obj, list_of_filters, edge_origin='target')=>{
+  let all_blocks = list_of_filters.map((filter)=>{
+    return findChildrenValueFilter(mx_obj,filter)
+  }).flat()
+  let edges = findEdges(mx_obj,all_blocks,edge_origin)
+  return [all_blocks,edges]
+}
 
+/**
+ * Gets Promise(mxObj) from text (contrary to toString)
+ * @param  {String} stringToParse '<mxGraphModel><root>...'
+ * @param  {Object} args_parser arguments parser (xml2js)
+ * @return {Promise}         {mxGraphModel: {$:{...},root:[{...}, {...}]} result of the parse     
+ */
 const parseStringDrawio = function(stringToParse, args_parser={}){
     return new Promise(function(resolve, reject){
         let parser = new xml2js.Parser(args_parser);
         parser.parseString(stringToParse,function(err, result){
-         if(err){
-             reject(err);
-         }
-         else {
-             resolve(result);
-         }
+          if(err) reject(err);
+          else resolve(result);
         })
     })
 }
-const toString = function(xml_obj, builder_opts={}){
+
+/**
+ * Gets text from mxObject (contrary to parseStringDrawio)
+ * @param  {Object} mxObj {mxGraphModel: {$:{...},root:[{...}, {...}]}
+ * @param  {Object} builder_opts arguments builder (xml2js)
+ * @return {String}         '<mxGraphModel><root>...'    
+ */
+const toString = function(mx_obj, builder_opts={}){
     let builder = new xml2js.Builder(builder_opts);
-    return builder.buildObject(xml_obj);
+    return builder.buildObject(mx_obj);
 }
+
+/**
+ * Clears text string from style extras
+ * @param  {String} stringToClear '<bold><thing>tal</bold></thing>'
+ * @return {String}         'tal'    
+ */
 const clearText=(stringToClear)=>{
   let rgex = />([^><]+)</g
   let result = rgex.exec(stringToClear)
   if (result!=null && result.length>1) return result[1]
   return stringToClear
 }
+/**
+ * Clears text string from style extras
+ * @param  {Array[Object]} list_nodes {mxType:{$:{label:''}}},...
+ * @return {String}         list of cleared labels    
+ */
 const getClearLabels = function(list_nodes){
     if (list_nodes == null) return []
     return _.map(list_nodes, (val)=>{
@@ -192,15 +211,27 @@ const getClearLabels = function(list_nodes){
         return clearText(props['label'])
     }).filter((val)=>(val!=null))
 }
-//parseStringDrawio(file)
-/*let parser = new xml2js.Parser();
-let children = []
-let result = await parseStringDrawio(file)
-let compressed = result['mxfile']['diagram'][0]._;
-let result_decompressed = await parseStringDrawio(decompress(compressed),{'explicitChildren':true})
-children=findChildren(result_decompressed, {'key_flowio':'input'})*/
-//getClearLabels(children)
 
+/**
+ * Clears text string from style extras
+ * @param  {String} label '<bold><thing>tal</bold></thing>'
+ * @param  {String} new_label new_tal
+ * @return {String}         '<bold><thing>new_tal</bold></thing>'
+ */
+const formatLabel=(label, new_label)=>{
+  if (label == null) return new_label
+  let matches = label.match(/\<(.*?)\>/g)
+  return matches?matches.slice(0,matches.length/2).join('')+new_label+matches.slice(matches.length/2).join(''):new_label
+}
+
+
+/**
+ * Gets Promise(block) from library given title
+ * @param  {String} library '<mxLibrary>...'
+ * @param  {String} title key for block in library
+ * @param  {String} type type of block: default object (please, any block create objects, adding a flowio_key in the data)
+ * @return {Array[Promise]}  can be more than 1    
+ */
 const getSimpleBlockFromLibrary = function(library, title, type='object'){
     return parseStringDrawio(library).then((lib_xml)=>{
         let list_blocks = (lib_xml).mxlibrary
@@ -216,22 +247,20 @@ const getSimpleBlockFromLibrary = function(library, title, type='object'){
     })
 }
 
-const formatLabel=(label, new_label)=>{
-  if (label == null) return new_label
-  let matches = label.match(/\<(.*?)\>/g)
-  return matches?matches.slice(0,matches.length/2).join('')+new_label+matches.slice(matches.length/2).join(''):new_label
-}
 
-const getGeometry = (block)=>{
-  return {
-    x:parseInt(block.object.mxCell[0].mxGeometry[0].$.x),
-    y:parseInt(block.object.mxCell[0].mxGeometry[0].$.y),
-    width:parseInt(block.object.mxCell[0].mxGeometry[0].$.width),
-    height:parseInt(block.object.mxCell[0].mxGeometry[0].$.height)
-  }
-}
-
-//let input = ((await getSimpleBlockFromLibrary(basics, 'input'))[0])
+/*
+ * Modifies a 'simpleblock': object -> mxCell's[0] -> mxGeometry's[0]
+ * @param  {Object} {object:{mxcell:[{mxgeometry:[{}]}}]}
+ * @param  {String} id of the simpleblock
+ * @param  {String} id_parent of the simpleblock
+ * @param  {String} new_title of the simpleblock
+ * @param  {String} x of the simpleblock
+ * @param  {String} y of the simpleblock
+ * @param  {String} width of the simpleblock
+ * @param  {String} height of the simpleblock 
+ * @param  {String} flowio_id of the flowio_id
+ * @return {Object} {object:{mxcell:[{mxgeometry:[{}]}}]} (all copied)
+ */
 const modifySimpleBlock = (block_o, id=null, id_parent=null,new_title=null, x=null, y=null,width=null, height=null, flowio_id=null)=>{
     let block = JSON.parse(JSON.stringify(block_o))
     if (Object.keys(block).includes('mxCell')){
@@ -252,18 +281,35 @@ const modifySimpleBlock = (block_o, id=null, id_parent=null,new_title=null, x=nu
     if (id_parent!=null) block.object.mxCell[0].$.parent=id_parent
     return block
 }
-const getGeoSimpleBlock = (block_o)=>{
-     return {...block_o.object.mxCell[0].mxGeometry[0].$}
-}
 
+/*
+ * Gets geometry object {x,y,width,height} from a 'simpleblock': object -> mxCell's[0] -> mxGeometry's[0]
+ * @param  {Object} {object:{mxcell:[{mxgeometry:[{}]}}]}
+ * @return {Object} x, y, width, height to int
+ */
+const getGeoSimpleBlock = (block)=>{
+  return {
+    x:parseInt(block.object.mxCell[0].mxGeometry[0].$.x),
+    y:parseInt(block.object.mxCell[0].mxGeometry[0].$.y),
+    width:parseInt(block.object.mxCell[0].mxGeometry[0].$.width),
+    height:parseInt(block.object.mxCell[0].mxGeometry[0].$.height)
+  }
+}
+/*
+ * Removes anchor points of edge
+ * @param  {Object} {mxcell:[{mxgeometry:[{}]}}
+ * @return {Object} x, y, width, height to int
+ */
 const removeEdgePoints = (edge)=>{
   let new_edge = JSON.parse(JSON.stringify(edge))
-  //console.log(JSON.stringify(edge,null,1))
   new_edge.mxCell.mxGeometry[0]={$:new_edge.mxCell.mxGeometry[0].$}
   return new_edge
 }
-//modifySimpleBlock(input[0],'id-input','parent_id', 1,2,4,5)
-
+/*
+ * Changes xml2js children explicit to not explicit
+ * @param  {Object} mxobj
+ * @return {Object} mxobj
+ */
 const explicitChildrenToNot=(obj)=>{
   let new_obj = {$:obj.$}
   if (obj.$$!=null){
@@ -273,6 +319,8 @@ const explicitChildrenToNot=(obj)=>{
   }
   return new_obj
 }
+
+
 const groupBy_values = (array, func)=>{
   let groupby_val = _.groupBy(array,func)
   return Object.keys(groupby_val).reduce((final_object, key, index, array)=>{
@@ -314,14 +362,12 @@ module.exports={
   findChildren:findChildren,
   findChildrenValueFilter:findChildrenValueFilter,
   getDiagram:getDiagram,
-  explicitChildrenToNot:explicitChildrenToNot,
   getGeoSimpleBlock:getGeoSimpleBlock,
   //findRelated:findRelated,
   findAllAndEdges:findAllAndEdges,
   clearText:clearText,
   findEdges:findEdges,
-  removeEdgePoints:removeEdgePoints,
-  getGeometry:getGeometry
+  removeEdgePoints:removeEdgePoints
 }
 
 /*
@@ -340,3 +386,11 @@ compress(toString(mxGraph,{headless:true}))
 toString(mxGraph,{headless:true});
 compress(toString(real,{headless:true}))
 */
+/*
+
+String.prototype.formatUnicorn = function (){
+  var d=this.toString();
+  if(!arguments.length)return d;
+  var a=typeof arguments[0],a="string"==a||"number"==a?Array.prototype.slice.call(arguments):arguments[0],c;for(c in a)d=d.replace(RegExp("\\{"+c+"\\}","gi"),a[c]);return d}
+
+ */
