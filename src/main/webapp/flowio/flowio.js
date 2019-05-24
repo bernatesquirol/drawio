@@ -2,8 +2,10 @@ const fs = require('fs')
 const path = require('path')
 const drawionode = require('./drawio-node')
 const ROOT_ID = 1
-const getBasics = (basics_file_path)=>{
-  return fs.existsSync(basics_file_path)?fs.readFileSync(basics_file_path):basics
+
+
+const getBasics = ()=>{
+  return basics
 }
 const guidGenerator = ()=>{
   var S4 = function() {
@@ -37,11 +39,11 @@ const createMinimizedFunctionCell = (basics_lib_path, inputs, outputs, flowio_id
 }
 
 const getShape=(xml_obj)=>{
-	let shapes = drawionode.findChildrenValueFilter(xml_obj, {'flowio_key':'shape_container'})
+	let shapes = xml_obj.findChildrenRecursiveObjectFilter({'flowio_key':'shape_container'})
 	let shape = null
 	if(shapes.length>0){
 		let id_parent = shapes[0].object.$.id
-		let find_shapes = drawionode.findChildrenValueFilter(xml_obj,{'parent':id_parent})
+		let find_shapes = xml_obj.findChildrenRecursiveObjectFilter({'parent':id_parent})
 		if(find_shapes.length>0){
 			shape = find_shapes[0]//.mxCell
 		}
@@ -53,16 +55,16 @@ const getShape=(xml_obj)=>{
 const importFunction=(result_decompressed, file_id,basics_file_path)=>{
 	let shape = getShape(result_decompressed)
 	//console.log(shape)
-	let inputs = drawionode.getClearLabels(drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'input_func'}))
-	let name_func = drawionode.getClearLabels(drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'name'}))[0]
-	let outputs = drawionode.getClearLabels(drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'output_func'}))
+	let inputs = drawionode.getClearLabels(result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'input_func'}))
+	let name_func = drawionode.getClearLabels(result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'name'}))[0]
+	let outputs = drawionode.getClearLabels(result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'output_func'}))
 	return createMinimizedFunctionCell(basics_file_path,inputs, outputs, file_id, name_func, shape.mxCell.$.style).then((all_blocks)=>([all_blocks,name_func]))
 }
 const importBlock=(result_decompressed, file_id, flowio_key)=>{
 	let basics_lib = getBasics()
 	let function_promise = drawionode.getSimpleBlockFromLibrary(basics_lib, 'function')
   //console.log(function_promise)
-	let name = drawionode.getClearLabels(drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'name'}))[0]
+	let name = drawionode.getClearLabels(result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'name'}))[0]
 
   let shape = getShape(result_decompressed)
 	//console.log(JSON.stringify(shapes,null,2))
@@ -80,23 +82,23 @@ const importBlock=(result_decompressed, file_id, flowio_key)=>{
 const importLibraryFlowio=(loadLocalLibrary)=>{
 	loadLocalLibrary('flowio', flowio_lib)
 }
-const readDiagram = (file_path)=>{
+/*const readDiagram = (file_path)=>{
 	return fs.promises.readFile(file_path,'utf8').then((data)=>{
 		return drawionode.parseStringDrawio(data).then((data_value)=>{
 				let compressed = data_value['mxfile']['diagram'][0]._;
 				return drawionode.parseStringDrawio(drawionode.decompress(compressed))
 			})
 		})
-}
+}*/
 
 const isDatabase = (result_decompressed)=>{
-	return drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'type_database'}).length>0
+	return result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'type_database'}).length>0
 }
 const isFunction = (result_decompressed)=>{
-	return drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'type_function'}).length>0
+	return result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'type_function'}).length>0
 }
 const isStudy = (result_decompressed)=>{
-	return drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'type_study'}).length>0
+	return result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'type_study'}).length>0
 }
 
 function importLocalLibraries(loadLocalLibrary, file_path, original_file_path, basics_file_path){
@@ -112,13 +114,13 @@ function importLocalLibraries(loadLocalLibrary, file_path, original_file_path, b
 		if (key_lib.slice(-7)=='.drawio'){
 			let file_id = fs.lstatSync(file_path).ino
 			console.log(file_id, file_path)
-			let result = readDiagram(file_path).then((result_decompressed)=>{
+			let result = drawionode.readDiagram(file_path).then((result_decompressed)=>{
 				let xml_data = null
 				if (isFunction(result_decompressed)){
 					xml_data = importFunction(result_decompressed,file_id,basics_file_path)
 				}else if (isStudy(result_decompressed)){
 					xml_data = importBlock(result_decompressed, file_id, 'study')
-					//let id = drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'database_modified'})[0].object.$.id
+					//let id = result_decompressed.findChildrenRecursiveObjectFilter( {'flowio_key':'database_modified'})[0].object.$.id
 
 				}else if (isDatabase(result_decompressed)){
 					xml_data = importBlock(result_decompressed, file_id, 'database')
@@ -235,20 +237,20 @@ const getCollapsibleFromMxCell = (result_decompressed,width_big=null,height_big=
 }
 const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0, padding_top=20)=>{
 
-	return readDiagram(index[file_id]).then((result_decompressed)=>{
+	return drawionode.readDiagram(index[file_id]).then((result_decompressed)=>{
 		let input_ids = {}
 		let output_ids = {}
 		let new_id_parent = guidGenerator()
 		if (!isFunction(result_decompressed)) return [{},[[],0],{}]
     let basics_lib = getBasics()
   	let promise_container = drawionode.getSimpleBlockFromLibrary(basics_lib, 'container')
-    let title = drawionode.getClearLabels(drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'name'}))[0]
-    let input_cells = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'input_func'})
-		let output_cells = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'output_func'})
-    let function_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'function'})
+    let title = drawionode.getClearLabels(result_decompressed.findChildrenRecursiveObjectFilter( {'flowio_key':'name'}))[0]
+    let input_cells = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'input_func'})
+		let output_cells = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'output_func'})
+    let function_cells_small = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'function'})
 
-    let input_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'input'})
-		let output_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'output'})
+    let input_cells_small = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'input'})
+		let output_cells_small = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'output'})
     console.log(function_cells_small,input_cells_small,output_cells_small)
     let x_min = [...function_cells_small,...input_cells,...output_cells].reduce((acc,item)=>{
       let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.x)
@@ -319,9 +321,9 @@ const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0, paddi
 			obj[drawionode.clearText(item.object.$.label)]=item.object.$.id
 			return obj
 		},{})
-		//let function_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'function'})
-		/*let input_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'input'})
-		let output_cells_small = drawionode.findChildrenValueFilter(result_decompressed,{'flowio_key':'output'})*/
+		//let function_cells_small = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'function'})
+		/*let input_cells_small = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'input'})
+		let output_cells_small = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'output'})*/
     /*let width_block = parseInt(input_cells[0].object.mxCell[0].mxGeometry[0].$.width)
     let height_block = parseInt(input_cells[0].object.mxCell[0].mxGeometry[0].$.height)
     let x_min = [...function_cells_small,...input_cells,...output_cells].reduce((acc,item)=>{
@@ -438,7 +440,7 @@ const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0, paddi
 const extractLogicFromFile=(index,file_id)=>{
 
 	if (!index[file_id]) return
-	return readDiagram(index[file_id]).then((result_decompressed)=>{
+	return drawionode.readDiagram(index[file_id]).then((result_decompressed)=>{
 		if (isStudy(result_decompressed)){
 			let all_keys = [{'flowio_key':'hardcoded'},{'flowio_key':'function'},{'flowio_key':'database'},{'flowio_key':'database_modified'},{'flowio_key':'input'},{'flowio_key':'output'}]
 			let all_and_edges = drawionode.findAllAndEdges(result_decompressed,all_keys)
@@ -467,9 +469,9 @@ const extractLogicFromFile=(index,file_id)=>{
 
 const createMdFile = (index, file_id)=>{
 	if (!index[file_id]) return
-	return readDiagram(index[file_id]).then((result_decompressed)=>{
-		let title = drawionode.getClearLabels(drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'name'}))[0]
-		let description =drawionode.getClearLabels(drawionode.findChildrenValueFilter(result_decompressed, {'flowio_key':'description'}))[0]
+	return drawionode.readDiagram(index[file_id]).then((result_decompressed)=>{
+		let title = drawionode.getClearLabels(result_decompressed.findChildrenRecursiveObjectFilter( {'flowio_key':'name'}))[0]
+		let description =drawionode.getClearLabels(result_decompressed.findChildrenRecursiveObjectFilter( {'flowio_key':'description'}))[0]
 		if (isStudy(result_decompressed)){
 
 		}else if (isDatabase(result_decompressed)){

@@ -57,82 +57,8 @@ const bytesToString = function(a) {
     return c.join("")
 }
 
-/**
- * Gets children from a given mx_obj
- * @param  {Object} mx_obj {mxObject: {$:{...},mxType1:[{...}, {...}]}
- * @return {Array[Object]}        [{mxType1:{...}},{mxType1:{...}},{mxType2:{...}},...]
- */
-const getChildren = function(mx_obj){
-  //seleccionem {$:{...},mxType:[ Object object ], ...}
-  let values = Object.values(mx_obj)[0]
-  //seleccionem {mxType:[ Object object ], ...}
-  let children = Object.keys(values).filter((key)=>key!='$')
-  if (children==null) return null
-  let real_children = []
-  children.forEach((nodeType)=>{
-    //if(!Array.isArray(values[nodeType])) console.log(mx_obj)
-    // iterem per l'array d'objectes i retornem cada item individualment
-    // (desagrupemBy el tipus)
-    values[nodeType].forEach((real_child)=>{
-      let obj = {}
-      //{mxType:{...}}
-      obj[nodeType]={...real_child}
-      real_children.push(obj)
-    })
-  })
-  return real_children
-}
-/**
- * Gets props ($) from a given mx_obj
- * @param  {Object} mx_obj {mxObject: {$:{...},mxType1:[{...}, {...}]}
- * @return {Object}        {...}
- */
-const getProps = function(mx_obj){
-  let values = Object.values(mx_obj)[0]
-  if (Array.isArray(values))console.log('NO EH!!!!')
-  return values.$
-}
 
-/**
- * Recursive method to get the children of an mx_object, props of whom satisfy the filter_func
- * @param  {Object} mx_obj {mxObject: {$:{...},mxType1:[{...}, {...}]}
- * @param  {function} filter_func function(props){ return true/false }, 
- *                           returns true or false given the props of the item 
- * @return {Array[Object]}        [{mxType1:{...}},{mxType1:{...}},{mxType2:{...}},...]
- */
-const findChildren = function(mx_obj, filter_func){
-  if (mx_obj==null) return null
-  let props = getProps(mx_obj)
-  if (props!=null){
-    if (filter_func==null | filter_func(props)) {
-      return [mx_obj]
-    }
-  }
-  let children = getChildren(mx_obj)
-  if (children==null || children.length<1) return null
-  // flatmap fa un map (executa per tot item d'un array) i un flatten (es carrega les llistes de llistes)
-  let return_value = _.flatMap(children,(child)=>findChildren(child,filter_func)).filter((child)=>child!=null)
-  return return_value
-}
 
-/**
- * findChildren with given properties
- * @param  {Object} mx_obj {mxObject: {$:{...},mxType1:[{...}, {...}]}
- * @param  {Object} obj_filter {key:value,...} all the desired key_value pairs the block props have to satisfy
- * @return {Array[Object]}        [{mxType1:{...}},{mxType1:{...}},{mxType2:{...}},...]
- */
-const findChildrenValueFilter = function(mx_obj, obj_filter={}){
-  return findChildren(mx_obj, (props)=>_.reduce(obj_filter,(result, value, key) =>
-  (result && props[key]==value),true))
-}
-
-/**
- * Get the edges from/to to certain blocks
- * @param  {Object} mx_obj {mxObject: {$:{...},mxType1:[{...}, {...}]}
- * @param  {Array[Object]} all_blocks the blocks where the edges will begin or end
- * @param  {String} edge_origin can be either 'target' or 'source'
- * @return {Array[Object]}        [{mxType1:{...}},{mxType1:{...}},{mxType2:{...}},...]       
- */
 const findEdges=(mx_obj,all_blocks,edge_origin='target')=>{
   let all_ids = all_blocks.map((block)=>{
     return Object.values(block)[0].$.id
@@ -143,24 +69,88 @@ const findEdges=(mx_obj,all_blocks,edge_origin='target')=>{
       return props[edge_origin]!=null && all_ids.includes(props[edge_origin]) //|| all_ids(props.source==id_to_find)
     }
   }
-  let edges = findChildren(mx_obj, filter_edges(all_ids))
+  let edges = mx_obj.findChildrenRecursive(filter_edges(all_ids))
   return edges
 }
-/**
- * Get the blocks and the edges given a list of object_filters
- * @param  {Object} mx_obj {mxObject: {$:{...},mxType1:[{...}, {...}]}
- * @param  {Array[Object]} list_of_filters list of objects of filters (filter1 OR filter2)
- * @param  {String} edge_origin can be either 'target' or 'source'
- * @return {Array[Object],Array[Object]}        blocks, edges       
- */
+
 const findAllAndEdges=(mx_obj, list_of_filters, edge_origin='target')=>{
   let all_blocks = list_of_filters.map((filter)=>{
-    return findChildrenValueFilter(mx_obj,filter)
+    return mx_obj.findChildrenRecursiveObjectFilter(filter)
   }).flat()
   let edges = findEdges(mx_obj,all_blocks,edge_origin)
   return [all_blocks,edges]
 }
+class mxObject extends Object {
+  constructor(obj, type) {
+    super()
+    obj && Object.assign(this, obj);
+    this['_type']=Object.keys(obj)[0]
+    //convert the childs to mxObject
+  }
+  getType(){
+    return this['_type']
+  }
+  /**
+   * Gets props ($) from a given mx_obj
+   * @param  {Object} mx_obj {mxObject: {$:{...},mxType1:[{...}, {...}]}
+   * @return {Object}        {...}
+   */
+  getProps(){
+    return this[this.getType()]['$']
+  }
+  getOriginal(){
+    let obj = {}
+    obj[this.getType()]=this[this.getType()]
+    return obj
+  }
+  getChildren(){
+    let mx_obj = this.getOriginal()
+    let values = Object.values(mx_obj)[0]
+    if (values==null) return null
+    let real_children = []
+    return Object.keys(values).filter((key)=>key!='$').reduce((agg,nodeType)=>{
+      return [...agg,...values[nodeType].map((real_child)=>{
+        //console.log(real_child)
+        let obj = {}
+        obj[nodeType]={...real_child}
+        return new mxObject(obj)
+      })]
+    },[])
+    
+  }
 
+  /**
+   * Recursive method to get the children of an mx_object, props of whom satisfy the filter_func: the children is given by key-value pairs not like in xml2js
+   * @param  {function} filter_func function(props){ return true/false }, 
+   *                           returns true or false given the props of the item 
+   * @return {Array[Object]}        [{mxType1:{...}},{mxType1:{...}},{mxType2:{...}},...]
+   */
+  findChildrenRecursive(filter_func){
+    let mx_obj = this
+    let props = mx_obj.getProps()
+    
+    if (props!=null){
+      if (filter_func==null | filter_func(props)) {
+        return [mx_obj]
+      }
+    }
+    let children = mx_obj.getChildren()
+    if (children==null || children.length<1) return null
+    // flatmap fa un map (executa per tot item d'un array) i un flatten (es carrega les llistes de llistes)
+    let return_value = _.flatMap(children,(child)=>child.findChildrenRecursive(filter_func)).filter((child)=>child!=null)
+    return return_value
+  }
+
+  /**
+   * findChildren with given properties
+   * @param  {Object} obj_filter {key:value,...} all the desired key_value pairs the block props have to satisfy
+   * @return {Array[Object]}        [{mxType1:{...}},{mxType1:{...}},{mxType2:{...}},...]
+   */
+  findChildrenRecursiveObjectFilter(obj_filter={}){
+    return this.findChildrenRecursive((props)=>_.reduce(obj_filter,(result, value, key) =>
+    (result && props[key]==value),true))
+  }
+}
 /**
  * Gets Promise(mxObj) from text (contrary to toString)
  * @param  {String} stringToParse '<mxGraphModel><root>...'
@@ -173,6 +163,7 @@ const parseStringDrawio = function(stringToParse, args_parser={}){
         parser.parseString(stringToParse,function(err, result){
           if(err) reject(err);
           else resolve(result);
+          
         })
     })
 }
@@ -207,7 +198,7 @@ const clearText=(stringToClear)=>{
 const getClearLabels = function(list_nodes){
     if (list_nodes == null) return []
     return _.map(list_nodes, (val)=>{
-        let props = getProps(val)
+        let props = val.getProps()
         return clearText(props['label'])
     }).filter((val)=>(val!=null))
 }
@@ -330,11 +321,13 @@ const groupBy_values = (array, func)=>{
   },{})
 }
 
-const openDiagram = (path, opts={})=>{
+const readDiagram = (path, opts={})=>{
   return fs.promises.readFile(path,'utf8').then((data)=>{
-    return drawionode.parseStringDrawio(data).then((data_value)=>{
+    return parseStringDrawio(data).then((data_value)=>{
       let compressed = data_value['mxfile']['diagram'][0]._;
-      return drawionode.parseStringDrawio(drawionode.decompress(compressed),opts)
+      return parseStringDrawio(decompress(compressed),opts).then((result_decompressed)=>{
+        return new mxObject(result_decompressed) 
+      })
     })
   })
 }
@@ -359,15 +352,15 @@ module.exports={
   getSimpleBlockFromLibrary: getSimpleBlockFromLibrary,
   getClearLabels:getClearLabels,
   modifySimpleBlock:modifySimpleBlock,
-  findChildren:findChildren,
-  findChildrenValueFilter:findChildrenValueFilter,
+  //findChildren:findChildren,
   getDiagram:getDiagram,
   getGeoSimpleBlock:getGeoSimpleBlock,
   //findRelated:findRelated,
   findAllAndEdges:findAllAndEdges,
   clearText:clearText,
   findEdges:findEdges,
-  removeEdgePoints:removeEdgePoints
+  removeEdgePoints:removeEdgePoints,
+  readDiagram:readDiagram
 }
 
 /*
