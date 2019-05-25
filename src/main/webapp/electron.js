@@ -61,7 +61,7 @@ function loadLocalLibraries (win,query){
 				//3659174697640273
 				
 				//flowio.createDocumentation(index,file_path,file_path)//.then((data)=>console.log(data))
-				//flowio.extractLogicFromFile(index,'46443371157363740')//.then((data)=>console.log(data))//(53198770598448880) (35184372089326284) 46443371157363740
+				flowio.extractLogicFromFile(index,'46443371157363740')//.then((data)=>console.log(data))//(53198770598448880) (35184372089326284) 46443371157363740
 			})
 			//console.log(index)
 

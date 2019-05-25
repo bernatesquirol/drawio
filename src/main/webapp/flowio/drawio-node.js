@@ -85,7 +85,17 @@ class mxObject extends Object {
     super()
     obj && Object.assign(this, obj);
     this['_type']=Object.keys(obj)[0]
-    //convert the childs to mxObject
+    this['_isSimpleBlock']=obj.object!=null&&obj.object.mxCell!=null&&obj.object.mxCell[0].mxGeometry!=null&&obj.object.mxCell[0].mxGeometry[0]!=null
+    if(this['_isSimpleBlock']){
+      let geo = this.object.mxCell[0].mxGeometry[0]
+      this.object.mxCell[0].mxGeometry[0].$ = {
+        ...geo.$,
+        x:parseInt(geo.$.x),
+        y:parseInt(geo.$.y),
+        width:parseInt(geo.$.width),
+        height:parseInt(geo.$.height),
+      }
+    }
   }
   getType(){
     return this['_type']
@@ -115,10 +125,19 @@ class mxObject extends Object {
         obj[nodeType]={...real_child}
         return new mxObject(obj)
       })]
-    },[])
-    
+    },[])    
   }
-
+  changeProp(key, value){
+    this[this.getType()].$[key]=value
+  }
+  changeGeometrySimpleBlock(key, value){
+    //key: x, y, width, height
+    if (this['_isSimpleBlock']) this.object.mxCell[0].mxGeometry[0].$[key]=value
+  }
+  changeParent(parent_id){
+    if (this['_isSimpleBlock']) this.object.mxCell[0].$.parent=parent_id
+    //else 
+  }
   /**
    * Recursive method to get the children of an mx_object, props of whom satisfy the filter_func: the children is given by key-value pairs not like in xml2js
    * @param  {function} filter_func function(props){ return true/false }, 
@@ -229,10 +248,11 @@ const getSimpleBlockFromLibrary = function(library, title, type='object'){
         return Promise.all(JSON.parse(list_blocks).filter((block)=>(block.title==title))
                   .map((obj)=>(parseStringDrawio(decompress(obj.xml)).then((decompressed_block)=>{
                     let obj_val = decompressed_block.mxGraphModel.root[0][type][0]
+                    //console.log('quedius',obj_val)
                     //cleaning upper layers
                     let return_obj = {}
                     return_obj[type]=obj_val
-                    return return_obj
+                    return new mxObject(return_obj)
         })
         )))
     })
@@ -252,24 +272,18 @@ const getSimpleBlockFromLibrary = function(library, title, type='object'){
  * @param  {String} flowio_id of the flowio_id
  * @return {Object} {object:{mxcell:[{mxgeometry:[{}]}}]} (all copied)
  */
-const modifySimpleBlock = (block_o, id=null, id_parent=null,new_title=null, x=null, y=null,width=null, height=null, flowio_id=null)=>{
-    let block = JSON.parse(JSON.stringify(block_o))
-    if (Object.keys(block).includes('mxCell')){
-      if (!Array.isArray(block['mxCell'])){
-        block['mxCell']=[block['mxCell']]
-      }
-      block={'object':{...block,$:{}}}
-    }
-    if (!Object.keys(block).includes('object')) return block
-    if (new_title!=null) block.object.$.label = formatLabel(block.object.$.label,new_title)
-    console.log(new_title, block.object.$.label)
-    if (width!=null) block.object.mxCell[0].mxGeometry[0].$.width = width
-    if (height!=null) block.object.mxCell[0].mxGeometry[0].$.height = height
-    if (x!=null) block.object.mxCell[0].mxGeometry[0].$.x = x
-    if (y!=null) block.object.mxCell[0].mxGeometry[0].$.y = y
-    if (id!=null) block.object.$.id = id
-    if (flowio_id!=null) block.object.$.flowio_id = flowio_id
-    if (id_parent!=null) block.object.mxCell[0].$.parent=id_parent
+const modifySimpleBlock = (block, id=null, id_parent=null,new_title=null, x=null, y=null,width=null, height=null, flowio_id=null)=>{
+    //let block = JSON.parse(JSON.stringify(block_o))
+    
+    if (new_title!=null) block.changeProp('label',new_title)
+    //console.log(new_title, block.object.$.label)
+    if (width!=null) block.changeGeometrySimpleBlock('width',width) //block.object.mxCell[0].mxGeometry[0].$.width = width
+    if (height!=null) block.changeGeometrySimpleBlock('height',height)//block.object.mxCell[0].mxGeometry[0].$.height = height
+    if (x!=null) block.changeGeometrySimpleBlock('x',x)
+    if (y!=null) block.changeGeometrySimpleBlock('y',y)
+    if (id!=null) block.changeProp('id',id)
+    if (flowio_id!=null) block.changeProp('flowio_id',flowio_id)
+    if (id_parent!=null) block.changeParent(id_parent)
     return block
 }
 
@@ -333,8 +347,9 @@ const readDiagram = (path, opts={})=>{
 }
 
 const getDiagram = (array_obj, root_id)=>{
-  let root = {'mxCell':[],...groupBy_values(array_obj, Object.keys)}
-  console.log(root['mxCell'])
+  let real_obj = array_obj.map((item)=>item.getOriginal())
+  let root = {'mxCell':[],...groupBy_values(real_obj, Object.keys)}
+  //console.log(root['mxCell'])
   root['mxCell']=[...root['mxCell'],{$: {id: "0"}},{$: {id: root_id, parent: "0"}}]
   return {'mxGraphModel':{'root':root}}
 
