@@ -284,9 +284,11 @@ const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0, paddi
 				return [...acc,extractLogicFromFunction(index,func.object.$.flowio_id,ROOT_ID,x_func+width, y_func)]
 			})
 		},[Promise.resolve({'x':x, 'width':0, 'y':y+height_total})])
+    let without_init_value = func_logic_promises.slice(1)
 		//console.log('hey',JSON.stringify(func_logic_promises))
-    /*return Promise.all(func_logic_promises).then((all_funcs)=>{
-
+    /*return Promise.all([...without_init_value,promise_container]).then((all_promises_results)=>{
+      let container = all_promises_results[all_promises_results.length-1]
+      //let all_func = all_promises_results[all_promises_results.length-1] canviar
     })*/
     return promise_container.then((container)=>{//x=null, y=null,width=null, height=null
 			//console.log(padding_top)
@@ -346,7 +348,7 @@ const extractLogicFromFile=(index,file_id)=>{
 			//console.log(JSON.stringify(mxGraph,null,1))
 			//console.log(drawionode.toString(mxGraph,{headless:true}))
 		}else if(isFunction(result_decompressed)){
-			
+
 			extractLogicFromFunction(index, file_id).then((func_extraction)=>{
 				let all_blocks = func_extraction['blocks']
 				//console.log('ei',all_blocks)
