@@ -4,6 +4,115 @@ const pako = require('./pako');
 const ROOT_ID = 1
 const fs = require('fs')
 
+
+
+class mxObject extends Object {
+  constructor(obj, type) {
+    super()
+    obj && Object.assign(this, obj);
+    this['_type']=Object.keys(obj)[0]
+    this['_isSimpleBlock']=obj.object!=null&&obj.object.mxCell!=null&&obj.object.mxCell[0].mxGeometry!=null&&obj.object.mxCell[0].mxGeometry[0]!=null
+    if(this['_isSimpleBlock']){
+      let geo = this.object.mxCell[0].mxGeometry[0]
+      this.object.mxCell[0].mxGeometry[0].$ = {
+        ...geo.$,
+        x:parseInt(geo.$.x),
+        y:parseInt(geo.$.y),
+        width:parseInt(geo.$.width),
+        height:parseInt(geo.$.height),
+      }
+    }
+  }
+  getType(){
+    return this['_type']
+  }
+  /**
+   * Gets props ($) from a given mx_obj
+   * @param  {Object} mx_obj {mxObject: {$:{...},mxType1:[{...}, {...}]}
+   * @return {Object}        {...}
+   */
+  getProps(){
+    return this[this.getType()]['$']
+  }
+  getOriginal(){
+    let obj = {}
+    obj[this.getType()]=this[this.getType()]
+    return obj
+  }
+  getChildren(){
+    let mx_obj = this.getOriginal()
+    let values = Object.values(mx_obj)[0]
+    if (values==null) return null
+    let real_children = []
+    return Object.keys(values).filter((key)=>key!='$').reduce((agg,nodeType)=>{
+      return [...agg,...values[nodeType].map((real_child)=>{
+        //console.log(real_child)
+        let obj = {}
+        obj[nodeType]={...real_child}
+        return new mxObject(obj)
+      })]
+    },[])    
+  }
+  changeProp(key, value){
+    this[this.getType()].$[key]=value
+  }
+
+  changeParent(parent_id){
+    if (this['_isSimpleBlock']) this.object.mxCell[0].$.parent=parent_id
+    //else 
+  }
+  changeGeometrySimpleBlock(key, value){
+    //key: x, y, width, height
+    if (this['_isSimpleBlock']) this.object.mxCell[0].mxGeometry[0].$[key]=value
+  }
+  changeStyle(new_style){
+    if (this['_isSimpleBlock']) this.object.mxCell[0].$.style=new_style
+  }
+  getGeometry(){
+    if (this['_isSimpleBlock']) return this.object.mxCell[0].mxGeometry[0].$
+    return null
+  }
+  /**
+   * Recursive method to get the children of an mx_object, props of whom satisfy the filter_func: the children is given by key-value pairs not like in xml2js
+   * @param  {function} filter_func function(props){ return true/false }, 
+   *                           returns true or false given the props of the item 
+   * @return {Array[Object]}        [{mxType1:{...}},{mxType1:{...}},{mxType2:{...}},...]
+   */
+  findChildrenRecursive(filter_func){
+    let mx_obj = this
+    let props = mx_obj.getProps()
+    
+    if (props!=null){
+      if (filter_func==null | filter_func(props)) {
+        return [mx_obj]
+      }
+    }
+    let children = mx_obj.getChildren()
+    if (children==null || children.length<1) return null
+    // flatmap fa un map (executa per tot item d'un array) i un flatten (es carrega les llistes de llistes)
+    let return_value = _.flatMap(children,(child)=>child.findChildrenRecursive(filter_func)).filter((child)=>child!=null)
+    return return_value
+  }
+
+  /**
+   * findChildren with given properties
+   * @param  {Object} obj_filter {key:value,...} all the desired key_value pairs the block props have to satisfy
+   * @return {Array[Object]}        [{mxType1:{...}},{mxType1:{...}},{mxType2:{...}},...]
+   */
+  findChildrenRecursiveObjectFilter(obj_filter={}){
+    return this.findChildrenRecursive((props)=>_.reduce(obj_filter,(result, value, key) =>
+    (result && props[key]==value),true))
+  }
+  findChildrenRecursiveObjectFilters(obj_filters=[]){
+    return this.findChildrenRecursive((props)=>_.reduce(obj_filters,(result, obj_filter)=>{
+      let val_this_filter = _.reduce(obj_filter,(result, value, key) =>
+    (result && props[key]==value),true)
+      return (result||val_this_filter)
+    },false))
+  }
+}
+
+
 /**
  * Encodes a graph to a base64 compressed text
  * @param  {String} graph_string graph string to encode in base64, typically: <mxGraphModel><root>...</mxGraphModel
@@ -80,96 +189,7 @@ const findAllAndEdges=(mx_obj, list_of_filters, edge_origin='target')=>{
   let edges = findEdges(mx_obj,all_blocks,edge_origin)
   return [all_blocks,edges]
 }
-class mxObject extends Object {
-  constructor(obj, type) {
-    super()
-    obj && Object.assign(this, obj);
-    this['_type']=Object.keys(obj)[0]
-    this['_isSimpleBlock']=obj.object!=null&&obj.object.mxCell!=null&&obj.object.mxCell[0].mxGeometry!=null&&obj.object.mxCell[0].mxGeometry[0]!=null
-    if(this['_isSimpleBlock']){
-      let geo = this.object.mxCell[0].mxGeometry[0]
-      this.object.mxCell[0].mxGeometry[0].$ = {
-        ...geo.$,
-        x:parseInt(geo.$.x),
-        y:parseInt(geo.$.y),
-        width:parseInt(geo.$.width),
-        height:parseInt(geo.$.height),
-      }
-    }
-  }
-  getType(){
-    return this['_type']
-  }
-  /**
-   * Gets props ($) from a given mx_obj
-   * @param  {Object} mx_obj {mxObject: {$:{...},mxType1:[{...}, {...}]}
-   * @return {Object}        {...}
-   */
-  getProps(){
-    return this[this.getType()]['$']
-  }
-  getOriginal(){
-    let obj = {}
-    obj[this.getType()]=this[this.getType()]
-    return obj
-  }
-  getChildren(){
-    let mx_obj = this.getOriginal()
-    let values = Object.values(mx_obj)[0]
-    if (values==null) return null
-    let real_children = []
-    return Object.keys(values).filter((key)=>key!='$').reduce((agg,nodeType)=>{
-      return [...agg,...values[nodeType].map((real_child)=>{
-        //console.log(real_child)
-        let obj = {}
-        obj[nodeType]={...real_child}
-        return new mxObject(obj)
-      })]
-    },[])    
-  }
-  changeProp(key, value){
-    this[this.getType()].$[key]=value
-  }
-  changeGeometrySimpleBlock(key, value){
-    //key: x, y, width, height
-    if (this['_isSimpleBlock']) this.object.mxCell[0].mxGeometry[0].$[key]=value
-  }
-  changeParent(parent_id){
-    if (this['_isSimpleBlock']) this.object.mxCell[0].$.parent=parent_id
-    //else 
-  }
-  /**
-   * Recursive method to get the children of an mx_object, props of whom satisfy the filter_func: the children is given by key-value pairs not like in xml2js
-   * @param  {function} filter_func function(props){ return true/false }, 
-   *                           returns true or false given the props of the item 
-   * @return {Array[Object]}        [{mxType1:{...}},{mxType1:{...}},{mxType2:{...}},...]
-   */
-  findChildrenRecursive(filter_func){
-    let mx_obj = this
-    let props = mx_obj.getProps()
-    
-    if (props!=null){
-      if (filter_func==null | filter_func(props)) {
-        return [mx_obj]
-      }
-    }
-    let children = mx_obj.getChildren()
-    if (children==null || children.length<1) return null
-    // flatmap fa un map (executa per tot item d'un array) i un flatten (es carrega les llistes de llistes)
-    let return_value = _.flatMap(children,(child)=>child.findChildrenRecursive(filter_func)).filter((child)=>child!=null)
-    return return_value
-  }
 
-  /**
-   * findChildren with given properties
-   * @param  {Object} obj_filter {key:value,...} all the desired key_value pairs the block props have to satisfy
-   * @return {Array[Object]}        [{mxType1:{...}},{mxType1:{...}},{mxType2:{...}},...]
-   */
-  findChildrenRecursiveObjectFilter(obj_filter={}){
-    return this.findChildrenRecursive((props)=>_.reduce(obj_filter,(result, value, key) =>
-    (result && props[key]==value),true))
-  }
-}
 /**
  * Gets Promise(mxObj) from text (contrary to toString)
  * @param  {String} stringToParse '<mxGraphModel><root>...'
@@ -242,16 +262,16 @@ const formatLabel=(label, new_label)=>{
  * @param  {String} type type of block: default object (please, any block create objects, adding a flowio_key in the data)
  * @return {Array[Promise]}  can be more than 1    
  */
-const getSimpleBlockFromLibrary = function(library, title, type='object'){
+const getSimpleBlockFromLibrary = function(library, title){
     return parseStringDrawio(library).then((lib_xml)=>{
         let list_blocks = (lib_xml).mxlibrary
         return Promise.all(JSON.parse(list_blocks).filter((block)=>(block.title==title))
                   .map((obj)=>(parseStringDrawio(decompress(obj.xml)).then((decompressed_block)=>{
-                    let obj_val = decompressed_block.mxGraphModel.root[0][type][0]
+                    let obj_val = decompressed_block.mxGraphModel.root[0]['object'][0]
                     //console.log('quedius',obj_val)
                     //cleaning upper layers
                     let return_obj = {}
-                    return_obj[type]=obj_val
+                    return_obj['object']=obj_val
                     return new mxObject(return_obj)
         })
         )))
@@ -362,14 +382,15 @@ module.exports={
   //decode: decode,
   decompress:decompress,
   compress:compress,
+
   parseStringDrawio:parseStringDrawio,
   toString: toString,
+  
   getSimpleBlockFromLibrary: getSimpleBlockFromLibrary,
   getClearLabels:getClearLabels,
   modifySimpleBlock:modifySimpleBlock,
-  //findChildren:findChildren,
+  
   getDiagram:getDiagram,
-  getGeoSimpleBlock:getGeoSimpleBlock,
   //findRelated:findRelated,
   findAllAndEdges:findAllAndEdges,
   clearText:clearText,
@@ -378,27 +399,3 @@ module.exports={
   readDiagram:readDiagram
 }
 
-/*
-
-let final_func = await createMinimizedFunctionCell(['a1','a2','a3'],['b1','b2'],'function_id')
-//"Hello, {name}, are you feeling {adjective}?".formatUnicorn({name:"Gabriel", adjective: "OK"})
-
-
-let prova = "7ZZRb9owEMc/TR47JTZx4LHA2j100rQ+7LEyjkO8OnHmOAX26XfnOBBa2Do0bZrUSAjf/e073/lnSEQX1fbW8qb8aHKpI/o+ogtrjOtH1XYhtY5IrPKILiNCYvhE5OaMmng1briVtTuxwKy+SuFghuYrTLb0ItMwd16YGpXW7bT0CvvW4TbmWtXyqpRqXYJ1DVNSiJkedBit/Xc2d8rB4mw5xITEfdgww+/uUe4eBO7bpy+6Wjhl6l4bCiFoHtd42Bh5ktYpwfUdVvHJtMoHoMuVcc5UkGiYcK3VGgVnGvCWrsKkCQxbZ82j/KJyVw6ekjcYvrFGyLYFz6ZUTt43XKB7A0cEPmu6Opf5sEZ9Ry1+FzNGEzKbZXSSTaYxatyK+15m2Fyl9cJoY30BNE/lNJ/s9zFSpmRFGa4Q0DcOnbchF/bxhldK78DxQeoniRXum4oVy+1ZCpJRP2+lqaSzO5iyCQ3AjrOelHg4aXRmwcfb3l7vl+6jfQageL2GoyFxyE9pWLYLoSfBHqWbnshGnmXj2klbcyfn2PV2DDIMRoUcXJ6VwQy0X04+Clf9ISP3CWm2l2NfaLNR5gHo77ObzjWdO8ae/hT7A3zxGTxHhB/xctcJlXOItjB1azCe1wOgyTTYIw5j/yDH4QoJYAlhfInsjGWUs5OX6hn2MgHws9cyS04zuz2GJXQzuQyxMdBHbP1HIKn6BUeTf8fRr3nJ2Yqlr+KlKAoixJ/hJWHwMz16+rv2xs9JftI3fn6TH5r+JX7APLwe9n+D47fHHw=="
-let real = await parseStringDrawio(decompress(prova))
-compress(toString(real,{'renderOpts':{'pretty':false},'headless':true})
-decompress(prova)
-//compress(toString(real,{'minified':true}))
-let mxGraph = {'mxGraphModel':{'root':[{..._.groupBy(final_func, Object.keys),'mxCell':[{$: {id: "0"}},{$: {id: "1", parent: "0"}}]}]}}
-compress(toString(mxGraph,{headless:true}))
-toString(mxGraph,{headless:true});
-compress(toString(real,{headless:true}))
-*/
-/*
-
-String.prototype.formatUnicorn = function (){
-  var d=this.toString();
-  if(!arguments.length)return d;
-  var a=typeof arguments[0],a="string"==a||"number"==a?Array.prototype.slice.call(arguments):arguments[0],c;for(c in a)d=d.replace(RegExp("\\{"+c+"\\}","gi"),a[c]);return d}
-
- */

@@ -13,8 +13,18 @@ const guidGenerator = ()=>{
   };
   return (S4()+"-"+S4()+"-"+S4()+"-"+S4());
 }
-const createMinimizedFunctionCell = (basics_lib_path, inputs, outputs, flowio_id, function_name, mxCell_func_style=null, top_padding=10, padding_side=20)=>{
-	let basics_lib = getBasics(basics_lib_path)
+
+/**
+ * Decodes a a text from base64 to plain text
+ * @param  {Array} inputs list of input parameters names
+ * @param  {Array} outputs list of output parameters names
+ * @param  {Array} outputs list of output parameters names
+ * @param  {Array} outputs list of output parameters names
+ * @return {String} 
+ */
+const createMinimizedFunctionCell = (inputs, outputs, flowio_id, function_name, mxCell_func_style=null, top_padding=10, padding_side=20)=>{
+	let basics_lib = getBasics()//createMinimizedFunctionCell
+	// get the building blocks
 	let function_promise = drawionode.getSimpleBlockFromLibrary(basics_lib, 'function')
   let input_promise = drawionode.getSimpleBlockFromLibrary(basics_lib, 'input')
 	let output_promise = drawionode.getSimpleBlockFromLibrary(basics_lib, 'output')
@@ -22,16 +32,16 @@ const createMinimizedFunctionCell = (basics_lib_path, inputs, outputs, flowio_id
 			let real_func_id = flowio_id//'function'-guidGenerator()
 			//function_id+'-function-'+Date.now()
 			let func = result[0][0]
-			let geo_func = drawionode.getGeoSimpleBlock(func)
+			let geo_func = func.getGeometry()
 			let input = result[1][0]
-			let geo_input = drawionode.getGeoSimpleBlock(input)
+			let geo_input = input.getGeometry()
 			let output = result[2][0]
-			let geo_output = drawionode.getGeoSimpleBlock(output)
+			let geo_output = output.getGeometry()
+			// modify blocks position & name
 			let input_blocks = inputs.map((input_text, index)=>(drawionode.modifySimpleBlock(block_o=input,id='input-'+guidGenerator(),id_parent=real_func_id, input_text, x=padding_side, y=index*(Number(geo_input.height)+top_padding)+top_padding)))
 			let output_blocks = outputs.map((output_text, index)=>(drawionode.modifySimpleBlock(block_o=output,id='output-'+guidGenerator(),id_parent=real_func_id, output_text, x=2*padding_side+Number(geo_input.width), y=index*(Number(geo_output.height)+top_padding)+top_padding)))
-			if(mxCell_func_style){
-				func.object.mxCell[0].$.style=mxCell_func_style
-			}
+			// change style
+			if(mxCell_func_style) func.changeStyle(mxCell_func_style)
 			//console.log(geo_func.width,geo_input.width, geo_output.width)
 			let func_block = drawionode.modifySimpleBlock(func,id=real_func_id, id_parent=ROOT_ID, function_name, x=null, y=null, width=Number(geo_output.width)+Number(geo_input.width)+3*padding_side, height=(Number(geo_output.height)+top_padding)*Math.max(inputs.length, outputs.length)+top_padding, flowio_id=flowio_id)
 			return [func_block].concat(input_blocks).concat(output_blocks)
@@ -52,13 +62,13 @@ const getShape=(xml_obj)=>{
 }
 
 
-const importFunction=(result_decompressed, file_id,basics_file_path)=>{
+const importFunction=(result_decompressed, file_id)=>{
 	let shape = getShape(result_decompressed)
 	//console.log(shape)
 	let inputs = drawionode.getClearLabels(result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'input_func'}))
 	let name_func = drawionode.getClearLabels(result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'name'}))[0]
 	let outputs = drawionode.getClearLabels(result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'output_func'}))
-	return createMinimizedFunctionCell(basics_file_path,inputs, outputs, file_id, name_func, shape.mxCell.$.style).then((all_blocks)=>([all_blocks,name_func]))
+	return createMinimizedFunctionCell(inputs, outputs, file_id, name_func, shape.mxCell.$.style).then((all_blocks)=>([all_blocks,name_func]))
 }
 const importBlock=(result_decompressed, file_id, flowio_key)=>{
 	let basics_lib = getBasics()
@@ -283,15 +293,15 @@ const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0, paddi
 
       let container_modified = drawionode.modifySimpleBlock(container[0], new_id_parent, root_id, title, x, y, width_total, height_total)
       input_cells = input_cells.map((item, index)=>{
-        let geo = drawionode.getGeoSimpleBlock(item)
+        let geo = item.getGeometry()
       	return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
       })
       output_cells = output_cells.map((item, index)=>{
-        let geo = drawionode.getGeoSimpleBlock(item)
+        let geo = item.getGeometry()
         return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
 			})
       function_cells_small = function_cells_small.map((item, index)=>{
-        let geo = drawionode.getGeoSimpleBlock(item)
+        let geo = item.getGeometry()
         return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
       })
       let all_and_edges = drawionode.findAllAndEdges(result_decompressed, [{'flowio_key':'input_func'},{'flowio_key':'input'},{'flowio_key':'output_func'},{'flowio_key':'output'},{'flowio_key':'output_func'}])
