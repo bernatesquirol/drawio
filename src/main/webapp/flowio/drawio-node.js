@@ -326,7 +326,7 @@ const getGeoSimpleBlock = (block)=>{
  * @return {Object} x, y, width, height to int
  */
 const removeEdgePoints = (edge)=>{
-  let new_edge = JSON.parse(JSON.stringify(edge))
+  let new_edge = new mxObject(JSON.parse(JSON.stringify(edge)))
   new_edge.mxCell.mxGeometry[0]={$:new_edge.mxCell.mxGeometry[0].$}
   return new_edge
 }
@@ -367,7 +367,10 @@ const readDiagram = (path, opts={})=>{
 }
 
 const getDiagram = (array_obj, root_id)=>{
-  let real_obj = array_obj.map((item)=>item.getOriginal())
+  let real_obj = array_obj.map((item)=>
+  {
+    return item.getOriginal()
+  })
   let root = {'mxCell':[],...groupBy_values(real_obj, Object.keys)}
   //console.log(root['mxCell'])
   root['mxCell']=[...root['mxCell'],{$: {id: "0"}},{$: {id: root_id, parent: "0"}}]

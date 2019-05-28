@@ -276,20 +276,43 @@ const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0, paddi
 		let height_total =  padding_top+y_max-y_min
     //cascade of promises
 		let func_logic_promises = function_cells_small.reduce((acc,func)=>{
-      //console.log(acc, acc[acc.length-1], func)
+			if (acc.length==0){
+				return [extractLogicFromFunction(index,func.object.$.flowio_id,ROOT_ID,x, height_total+padding_top)]
+			}
 			return acc[acc.length-1].then((result)=>{
 				let x_func = result['x']
 				let y_func = result['y']
 				let width = result['width']
-				return [...acc,extractLogicFromFunction(index,func.object.$.flowio_id,ROOT_ID,x_func+width, y_func)]
+				let return_val =  [...acc,extractLogicFromFunction(index,func.object.$.flowio_id,ROOT_ID,x_func+width, y_func)]				
+				return return_val
 			})
-		},[Promise.resolve({'x':x, 'width':0, 'y':y+height_total})])
-    let without_init_value = func_logic_promises.slice(1)
+		},[])
+		
 		//console.log('hey',JSON.stringify(func_logic_promises))
-    /*return Promise.all([...without_init_value,promise_container]).then((all_promises_results)=>{
+    return Promise.all([...func_logic_promises,promise_container]).then((all_promises_results)=>{
       let container = all_promises_results[all_promises_results.length-1]
-      //let all_func = all_promises_results[all_promises_results.length-1] canviar
-    })*/
+			let all_func = all_promises_results.slice(0,all_promises_results.length-1)
+			console.log('logic_promises',all_func)
+			let container_modified = drawionode.modifySimpleBlock(container[0], new_id_parent, root_id, title, x, y, width_total, height_total)
+      input_cells = input_cells.map((item, index)=>{
+        let geo = item.getGeometry()
+      	return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
+      })
+      output_cells = output_cells.map((item, index)=>{
+        let geo = item.getGeometry()
+        return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
+			})
+      function_cells_small = function_cells_small.map((item, index)=>{
+        let geo = item.getGeometry()
+        return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
+      })
+      let all_and_edges = drawionode.findAllAndEdges(result_decompressed, [{'flowio_key':'input_func'},{'flowio_key':'input'},{'flowio_key':'output_func'},{'flowio_key':'output'},{'flowio_key':'output_func'}])
+			let edges = all_and_edges[1].map((item)=>drawionode.removeEdgePoints(item))
+			let all_func_blocks = all_func.flatMap((item)=>item.blocks)
+			let all_blocks_to_return = [container_modified,...all_func_blocks,...input_cells_small,...output_cells_small,...edges,...input_cells,...output_cells,...function_cells_small]
+			console.log(all_blocks_to_return)
+      return {'x':x,'y':y,'width':width_total, 'height':height_total,'blocks':all_blocks_to_return}
+    })
     return promise_container.then((container)=>{//x=null, y=null,width=null, height=null
 			//console.log(padding_top)
 
