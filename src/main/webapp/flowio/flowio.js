@@ -131,7 +131,6 @@ function importLocalLibraries(loadLocalLibrary, file_path, original_file_path, b
 				}else if (isStudy(result_decompressed)){
 					xml_data = importBlock(result_decompressed, file_id, 'study')
 					//let id = result_decompressed.findChildrenRecursiveObjectFilter( {'flowio_key':'database_modified'})[0].object.$.id
-
 				}else if (isDatabase(result_decompressed)){
 					xml_data = importBlock(result_decompressed, file_id, 'database')
 				}
@@ -234,39 +233,51 @@ const getFileIndex=(original_path)=>{
   return fs.promises.readFile(path.join(original_path,'.flowio')).then((data)=>JSON.parse(data))
 }
 
-const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0, padding_top=20)=>{
-
+const extractLogicFromFunction=(index, file_id, extract_func=true, extract_studies=true, max_depth=null, already_explored={}, depth=0, root_id=ROOT_ID, x=0, y=0, padding_top=20)=>{
+	let basics_lib = getBasics()
+	let promise_container = drawionode.getSimpleBlockFromLibrary(basics_lib, 'container')
 	return drawionode.readDiagram(index[file_id]).then((result_decompressed)=>{
 		let input_ids = {}
 		let output_ids = {}
 		let new_id_parent = guidGenerator()
-		if (!isFunction(result_decompressed)) return [{},[[],0],{}]
-    let basics_lib = getBasics()
-  	let promise_container = drawionode.getSimpleBlockFromLibrary(basics_lib, 'container')
-    let title = drawionode.getClearLabels(result_decompressed.findChildrenRecursiveObjectFilter( {'flowio_key':'name'}))[0]
-    let input_cells = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'input_func'})
-		let output_cells = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'output_func'})
-    let function_cells_small = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'function'})
+		new_already_explored={...already_explored}
+		new_already_explored[file_id]=new_id_parent
+		let title = drawionode.getClearLabels(result_decompressed.findChildrenRecursiveObjectFilter( {'flowio_key':'name'}))[0]
+		let all_blocks = []
+		if (isStudy(result_decompressed)) {
+			let databases = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'database'})
+			let databases_modified = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'database_modified'})
+			all_blocks=[...databases, ...databases_modified]
+		} else if (isFunction(result_decompressed)) {			
+			let input_cells = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'input_func'})
+			let output_cells = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'output_func'})
+			all_blocks=[...input_cells, ...output_cells]
+		}
+		let studies_small = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'study'})
+		let function_cells_small = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'function'})
+		all_blocks=[...all_blocks, ...function_cells_small, ...studies_small]
 
     let input_cells_small = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'input'})
 		let output_cells_small = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'output'})
-    console.log(function_cells_small,input_cells_small,output_cells_small)
-    let x_min = [...function_cells_small,...input_cells,...output_cells].reduce((acc,item)=>{
+		let children_of_all_blocks = [...input_cells_small,...output_cells_small]
+
+    //console.log(function_cells_small,input_cells_small,output_cells_small)
+    let x_min = all_blocks.reduce((acc,item)=>{
       let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.x)
       if (new_x<acc) return new_x
       return acc
     },Number.MAX_SAFE_INTEGER)
-    let y_min = [...function_cells_small,...input_cells,...output_cells].reduce((acc,item)=>{
+    let y_min = all_blocks.reduce((acc,item)=>{
       let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.y)
       if (new_x<acc) return new_x
       return acc
     },Number.MAX_SAFE_INTEGER)
-    let x_max = [...function_cells_small,...input_cells,...output_cells].reduce((acc,item)=>{
+    let x_max = all_blocks.reduce((acc,item)=>{
       let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.x)+parseInt(item.object.mxCell[0].mxGeometry[0].$.width)
       if (new_x>acc) return new_x
       return acc
     },0)
-    let y_max = [...function_cells_small,...input_cells,...output_cells].reduce((acc,item)=>{
+    let y_max = all_blocks.reduce((acc,item)=>{
       let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.y)+parseInt(item.object.mxCell[0].mxGeometry[0].$.height)
       if (new_x>acc) return new_x
       return acc
@@ -274,69 +285,62 @@ const extractLogicFromFunction=(index, file_id, root_id=ROOT_ID, x=0, y=0, paddi
 
 		let width_total =  x_max-x_min
 		let height_total =  padding_top+y_max-y_min
-    //cascade of promises
-		let func_logic_promises = function_cells_small.reduce((acc,func)=>{
-			if (acc.length==0){
-				return [extractLogicFromFunction(index,func.object.$.flowio_id,ROOT_ID,x, height_total+padding_top)]
-			}
-			return acc[acc.length-1].then((result)=>{
-				let x_func = result['x']
-				let y_func = result['y']
-				let width = result['width']
-				let return_val =  [...acc,extractLogicFromFunction(index,func.object.$.flowio_id,ROOT_ID,x_func+width, y_func)]				
-				return return_val
+		//cascade of function promises
+		let extract_logic_promises = []
+		if(max_depth==null || depth<max_depth){
+			let cells_to_extract = []
+			if (extract_func)cells_to_extract=[...cells_to_extract, ...function_cells_small]
+			if (extract_studies) cells_to_extract=[...cells_to_extract,...studies_small]
+			cells_to_extract = cells_to_extract.filter((cell, pos)=>{
+				return !Object.keys(new_already_explored).includes(cell.object.$.flowio_id)&& cells_to_extract.indexOf(cell) == pos;
 			})
-		},[])
+			//console.log('cells_to_extract',cells_to_extract)
+			extract_logic_promises = cells_to_extract.reduce((acc,func)=>{
+				if (acc.length==0){
+					//console.log('tal2', acc)
+					return [extractLogicFromFunction(index,func.object.$.flowio_id, extract_func, extract_studies, max_depth, new_already_explored,	depth+1,ROOT_ID,x, height_total+padding_top)]
+				}
+				//console.log(acc,acc[acc.length-1], func, cells_to_extract)
+				return [...acc,(acc[acc.length-1].then((result)=>{
+					let x_func = result['x']
+					let y_func = result['y']
+					let width = result['width']
+					let new_new_already_explored = result['already_explored']
+					
+					let return_val =  extractLogicFromFunction(index,func.object.$.flowio_id, extract_func, extract_studies, max_depth, new_new_already_explored, depth+1,ROOT_ID,x_func+width, y_func)				
+					//console.log('tal',return_val)
+					return return_val
+				}))].filter((item)=>item!=null)
+			},[])
+		}	 
 		
 		//console.log('hey',JSON.stringify(func_logic_promises))
-    return Promise.all([...func_logic_promises,promise_container]).then((all_promises_results)=>{
+    return Promise.all([...extract_logic_promises,promise_container]).then((all_promises_results)=>{
       let container = all_promises_results[all_promises_results.length-1]
 			let all_func = all_promises_results.slice(0,all_promises_results.length-1)
 			console.log('logic_promises',all_func)
 			let container_modified = drawionode.modifySimpleBlock(container[0], new_id_parent, root_id, title, x, y, width_total, height_total)
-      input_cells = input_cells.map((item, index)=>{
+      all_blocks = all_blocks.map((item, index)=>{
         let geo = item.getGeometry()
       	return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
       })
-      output_cells = output_cells.map((item, index)=>{
+      /*output_cells = output_cells.map((item, index)=>{
         let geo = item.getGeometry()
         return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
 			})
       function_cells_small = function_cells_small.map((item, index)=>{
         let geo = item.getGeometry()
         return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
-      })
-      let all_and_edges = drawionode.findAllAndEdges(result_decompressed, [{'flowio_key':'input_func'},{'flowio_key':'input'},{'flowio_key':'output_func'},{'flowio_key':'output'},{'flowio_key':'output_func'}])
-			let edges = all_and_edges[1].map((item)=>drawionode.removeEdgePoints(item))
+      })*/
+			let edges = drawionode.findEdges(result_decompressed, [...all_blocks,...children_of_all_blocks])
+				.map((item)=>drawionode.removeEdgePoints(item))
 			let all_func_blocks = all_func.flatMap((item)=>item.blocks)
-			let all_blocks_to_return = [container_modified,...all_func_blocks,...input_cells_small,...output_cells_small,...edges,...input_cells,...output_cells,...function_cells_small]
+			let all_blocks_to_return = [container_modified,...edges,...all_func_blocks,...all_blocks,...children_of_all_blocks]
 			console.log(all_blocks_to_return)
-      return {'x':x,'y':y,'width':width_total, 'height':height_total,'blocks':all_blocks_to_return}
+      return {'x':x,'y':y,'width':width_total, 'height':height_total,'blocks':all_blocks_to_return, 'already_explored':already_explored}
     })
-    return promise_container.then((container)=>{//x=null, y=null,width=null, height=null
-			//console.log(padding_top)
-
-      let container_modified = drawionode.modifySimpleBlock(container[0], new_id_parent, root_id, title, x, y, width_total, height_total)
-      input_cells = input_cells.map((item, index)=>{
-        let geo = item.getGeometry()
-      	return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
-      })
-      output_cells = output_cells.map((item, index)=>{
-        let geo = item.getGeometry()
-        return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
-			})
-      function_cells_small = function_cells_small.map((item, index)=>{
-        let geo = item.getGeometry()
-        return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
-      })
-      let all_and_edges = drawionode.findAllAndEdges(result_decompressed, [{'flowio_key':'input_func'},{'flowio_key':'input'},{'flowio_key':'output_func'},{'flowio_key':'output'},{'flowio_key':'output_func'}])
-			let edges = all_and_edges[1]
-      return {'x':x,'y':y,'width':width_total, 'height':height_total,'blocks':[container_modified,...input_cells_small,...output_cells_small,...edges,...input_cells,...output_cells,...function_cells_small]}
-      //container_modified.object.$.label=title
-      //console.log(JSON.stringify(container_modified))
-      //container_modified.mxCell.$.value=title
-    })
-    })
+    
+	})
 }
 /*const changeParent=(xml_obj, new_id_parent)=>{
 	let new_xml_obj = {...xml_obj}
@@ -358,7 +362,7 @@ const extractLogicFromFile=(index,file_id)=>{
 	return drawionode.readDiagram(index[file_id]).then((result_decompressed)=>{
 		if (isStudy(result_decompressed)){
 			let all_keys = [{'flowio_key':'hardcoded'},{'flowio_key':'function'},{'flowio_key':'database'},{'flowio_key':'database_modified'},{'flowio_key':'input'},{'flowio_key':'output'}]
-			let all_and_edges = drawionode.findAllAndEdges(result_decompressed,all_keys)
+			//let all_and_edges = drawionode.findAllAndEdges(result_decompressed,all_keys)
 			//let collapsible = getCollapsibleFromMxCell(result_decompressed)
 			let all = all_and_edges[0]
 			let edges = all_and_edges[1]

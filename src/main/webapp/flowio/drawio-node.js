@@ -190,6 +190,14 @@ const findAllAndEdges=(mx_obj, list_of_filters, edge_origin='target')=>{
   return [all_blocks,edges]
 }
 
+const findAllEdges=(mx_obj, list_mx_obj, edge_origin='target')=>{
+  let all_blocks = list_of_filters.map((filter)=>{
+    return mx_obj.findChildrenRecursiveObjectFilter(filter)
+  }).flat()
+  let edges = findEdges(mx_obj,all_blocks,edge_origin)
+  return [all_blocks,edges]
+}
+
 /**
  * Gets Promise(mxObj) from text (contrary to toString)
  * @param  {String} stringToParse '<mxGraphModel><root>...'
