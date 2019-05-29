@@ -12,6 +12,7 @@ class mxObject extends Object {
     obj && Object.assign(this, obj);
     this['_type']=Object.keys(obj)[0]
     this['_isSimpleBlock']=obj.object!=null&&obj.object.mxCell!=null&&obj.object.mxCell[0].mxGeometry!=null&&obj.object.mxCell[0].mxGeometry[0]!=null
+    this['_isEdge']=obj.mxCell!=null&&obj.mxCell.mxGeometry!=null&&obj.mxCell.$.source!=null&&obj.mxCell.$.target!=null
     if(this['_isSimpleBlock']){
       let geo = this.object.mxCell[0].mxGeometry[0]
       this.object.mxCell[0].mxGeometry[0].$ = {
@@ -51,7 +52,7 @@ class mxObject extends Object {
         obj[nodeType]={...real_child}
         return new mxObject(obj)
       })]
-    },[])    
+    },[])
   }
   changeProp(key, value){
     this[this.getType()].$[key]=value
@@ -59,14 +60,21 @@ class mxObject extends Object {
 
   changeParent(parent_id){
     if (this['_isSimpleBlock']) this.object.mxCell[0].$.parent=parent_id
-    //else 
+    //else
   }
   changeGeometrySimpleBlock(key, value){
     //key: x, y, width, height
     if (this['_isSimpleBlock']) this.object.mxCell[0].mxGeometry[0].$[key]=value
+
   }
   changeStyle(new_style){
     if (this['_isSimpleBlock']) this.object.mxCell[0].$.style=new_style
+    if(this['_isEdge']) this.mxCell.$.style=new_style
+  }
+  getStyle(){
+    if (this['_isSimpleBlock']) return this.object.mxCell[0].$.style
+    if(this['_isEdge']) return this.mxCell.$.style
+
   }
   getGeometry(){
     if (this['_isSimpleBlock']) return this.object.mxCell[0].mxGeometry[0].$
@@ -74,14 +82,14 @@ class mxObject extends Object {
   }
   /**
    * Recursive method to get the children of an mx_object, props of whom satisfy the filter_func: the children is given by key-value pairs not like in xml2js
-   * @param  {function} filter_func function(props){ return true/false }, 
-   *                           returns true or false given the props of the item 
+   * @param  {function} filter_func function(props){ return true/false },
+   *                           returns true or false given the props of the item
    * @return {Array[Object]}        [{mxType1:{...}},{mxType1:{...}},{mxType2:{...}},...]
    */
   findChildrenRecursive(filter_func){
     let mx_obj = this
     let props = mx_obj.getProps()
-    
+
     if (props!=null){
       if (filter_func==null | filter_func(props)) {
         return [mx_obj]
@@ -202,7 +210,7 @@ const findAllEdges=(mx_obj, list_mx_obj, edge_origin='target')=>{
  * Gets Promise(mxObj) from text (contrary to toString)
  * @param  {String} stringToParse '<mxGraphModel><root>...'
  * @param  {Object} args_parser arguments parser (xml2js)
- * @return {Promise}         {mxGraphModel: {$:{...},root:[{...}, {...}]} result of the parse     
+ * @return {Promise}         {mxGraphModel: {$:{...},root:[{...}, {...}]} result of the parse
  */
 const parseStringDrawio = function(stringToParse, args_parser={}){
     return new Promise(function(resolve, reject){
@@ -210,7 +218,7 @@ const parseStringDrawio = function(stringToParse, args_parser={}){
         parser.parseString(stringToParse,function(err, result){
           if(err) reject(err);
           else resolve(result);
-          
+
         })
     })
 }
@@ -219,7 +227,7 @@ const parseStringDrawio = function(stringToParse, args_parser={}){
  * Gets text from mxObject (contrary to parseStringDrawio)
  * @param  {Object} mxObj {mxGraphModel: {$:{...},root:[{...}, {...}]}
  * @param  {Object} builder_opts arguments builder (xml2js)
- * @return {String}         '<mxGraphModel><root>...'    
+ * @return {String}         '<mxGraphModel><root>...'
  */
 const toString = function(mx_obj, builder_opts={}){
     let builder = new xml2js.Builder(builder_opts);
@@ -229,7 +237,7 @@ const toString = function(mx_obj, builder_opts={}){
 /**
  * Clears text string from style extras
  * @param  {String} stringToClear '<bold><thing>tal</bold></thing>'
- * @return {String}         'tal'    
+ * @return {String}         'tal'
  */
 const clearText=(stringToClear)=>{
   let rgex = />([^><]+)</g
@@ -240,7 +248,7 @@ const clearText=(stringToClear)=>{
 /**
  * Clears text string from style extras
  * @param  {Array[Object]} list_nodes {mxType:{$:{label:''}}},...
- * @return {String}         list of cleared labels    
+ * @return {String}         list of cleared labels
  */
 const getClearLabels = function(list_nodes){
     if (list_nodes == null) return []
@@ -268,7 +276,7 @@ const formatLabel=(label, new_label)=>{
  * @param  {String} library '<mxLibrary>...'
  * @param  {String} title key for block in library
  * @param  {String} type type of block: default object (please, any block create objects, adding a flowio_key in the data)
- * @return {Array[Promise]}  can be more than 1    
+ * @return {Array[Promise]}  can be more than 1
  */
 const getSimpleBlockFromLibrary = function(library, title){
     return parseStringDrawio(library).then((lib_xml)=>{
@@ -296,13 +304,13 @@ const getSimpleBlockFromLibrary = function(library, title){
  * @param  {String} x of the simpleblock
  * @param  {String} y of the simpleblock
  * @param  {String} width of the simpleblock
- * @param  {String} height of the simpleblock 
+ * @param  {String} height of the simpleblock
  * @param  {String} flowio_id of the flowio_id
  * @return {Object} {object:{mxcell:[{mxgeometry:[{}]}}]} (all copied)
  */
 const modifySimpleBlock = (block, id=null, id_parent=null,new_title=null, x=null, y=null,width=null, height=null, flowio_id=null)=>{
     //let block = JSON.parse(JSON.stringify(block_o))
-    
+
     if (new_title!=null) block.changeProp('label',new_title)
     //console.log(new_title, block.object.$.label)
     if (width!=null) block.changeGeometrySimpleBlock('width',width) //block.object.mxCell[0].mxGeometry[0].$.width = width
@@ -368,7 +376,7 @@ const readDiagram = (path, opts={})=>{
     return parseStringDrawio(data).then((data_value)=>{
       let compressed = data_value['mxfile']['diagram'][0]._;
       return parseStringDrawio(decompress(compressed),opts).then((result_decompressed)=>{
-        return new mxObject(result_decompressed) 
+        return new mxObject(result_decompressed)
       })
     })
   })
@@ -396,11 +404,11 @@ module.exports={
 
   parseStringDrawio:parseStringDrawio,
   toString: toString,
-  
+
   getSimpleBlockFromLibrary: getSimpleBlockFromLibrary,
   getClearLabels:getClearLabels,
   modifySimpleBlock:modifySimpleBlock,
-  
+
   getDiagram:getDiagram,
   //findRelated:findRelated,
   findAllAndEdges:findAllAndEdges,
@@ -409,4 +417,3 @@ module.exports={
   removeEdgePoints:removeEdgePoints,
   readDiagram:readDiagram
 }
-
