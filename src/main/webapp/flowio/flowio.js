@@ -62,21 +62,21 @@ const getShape=(xml_obj)=>{
 }
 
 
-const importFunction=(result_decompressed, file_id)=>{
-	let shape = getShape(result_decompressed)
+const importFunction=(diagram, file_id)=>{
+	let shape = getShape(diagram)
 	//console.log(shape)
-	let inputs = drawionode.getClearLabels(result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'input_func'}))
-	let name_func = drawionode.getClearLabels(result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'name'}))[0]
-	let outputs = drawionode.getClearLabels(result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'output_func'}))
+	let inputs = drawionode.getClearLabels(diagram.findChildrenRecursiveObjectFilter({'flowio_key':'input_func'}))
+	let name_func = drawionode.getClearLabels(diagram.findChildrenRecursiveObjectFilter({'flowio_key':'name'}))[0]
+	let outputs = drawionode.getClearLabels(diagram.findChildrenRecursiveObjectFilter({'flowio_key':'output_func'}))
 	return createMinimizedFunctionCell(inputs, outputs, file_id, name_func, shape.mxCell.$.style).then((all_blocks)=>([all_blocks,name_func]))
 }
-const importBlock=(result_decompressed, file_id, flowio_key)=>{
+const importBlock=(diagram, file_id, flowio_key)=>{
 	let basics_lib = getBasics()
 	let function_promise = drawionode.getSimpleBlockFromLibrary(basics_lib, 'function')
   //console.log(function_promise)
-	let name = drawionode.getClearLabels(result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'name'}))[0]
+	let name = drawionode.getClearLabels(diagram.findChildrenRecursiveObjectFilter({'flowio_key':'name'}))[0]
 
-  let shape = getShape(result_decompressed)
+  let shape = getShape(diagram)
 	//console.log(JSON.stringify(shapes,null,2))
 	return function_promise.then((data)=>{
 		let func = data[0]
@@ -101,14 +101,14 @@ const importLibraryFlowio=(loadLocalLibrary)=>{
 		})
 }*/
 
-const isDatabase = (result_decompressed)=>{
-	return result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'type_database'}).length>0
+const isDatabase = (diagram)=>{
+	return diagram.findChildrenRecursiveObjectFilter({'flowio_key':'type_database'}).length>0
 }
-const isFunction = (result_decompressed)=>{
-	return result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'type_function'}).length>0
+const isFunction = (diagram)=>{
+	return diagram.findChildrenRecursiveObjectFilter({'flowio_key':'type_function'}).length>0
 }
-const isStudy = (result_decompressed)=>{
-	return result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'type_study'}).length>0
+const isStudy = (diagram)=>{
+	return diagram.findChildrenRecursiveObjectFilter({'flowio_key':'type_study'}).length>0
 }
 
 function importLocalLibraries(loadLocalLibrary, file_path, original_file_path, basics_file_path){
@@ -122,17 +122,18 @@ function importLocalLibraries(loadLocalLibrary, file_path, original_file_path, b
 			return result
 		}
 		if (key_lib.slice(-7)=='.drawio'){
-			let file_id = fs.lstatSync(file_path).ino
-			console.log(file_id, file_path)
-			let result = drawionode.readDiagram(file_path).then((result_decompressed)=>{
+
+			let result = drawionode.readDiagram(file_path).then((read_diagram_obj)=>{
+        let diagram = read_diagram_obj['diagram']
+        let file_id = read_diagram_obj['id']//fs.lstatSync(file_path).ino
 				let xml_data = null
-				if (isFunction(result_decompressed)){
-					xml_data = importFunction(result_decompressed,file_id,basics_file_path)
-				}else if (isStudy(result_decompressed)){
-					xml_data = importBlock(result_decompressed, file_id, 'study')
-					//let id = result_decompressed.findChildrenRecursiveObjectFilter( {'flowio_key':'database_modified'})[0].object.$.id
-				}else if (isDatabase(result_decompressed)){
-					xml_data = importBlock(result_decompressed, file_id, 'database')
+				if (isFunction(diagram)){
+					xml_data = importFunction(diagram,file_id,basics_file_path)
+				}else if (isStudy(diagram)){
+					xml_data = importBlock(diagram, file_id, 'study')
+					//let id = diagram.findChildrenRecursiveObjectFilter( {'flowio_key':'database_modified'})[0].object.$.id
+				}else if (isDatabase(diagram)){
+					xml_data = importBlock(diagram, file_id, 'database')
 				}
 				if(xml_data!=null){
 					return xml_data.then((data)=>{
@@ -213,15 +214,17 @@ const createFlowioIndex=(original_path, added_path='./')=>{
         },{});
       })
     })
-  }else if(lstat.isFile()){
-
-      let file_id = lstat.ino
-      let return_val = {}
-      return_val[file_id]=file_path
-      return return_val
-  }s
+  }else if(lstat.isFile() && file_path.slice(-7)=='.drawio'){
+    let diagram_obj = drawionode.readDiagram(file_path)
+    let file_id = drawionode.getDiagramId(file_path)
+    console.log('file',file_id)
+    let return_val = {}
+    return_val[file_id]=file_path
+    return return_val
+  }
 }
 const createFileIndex=(original_path)=>{
+  console.log('hey')
   return createFlowioIndex(original_path).then((result)=>{
     fs.writeFile(path.join(original_path,'.flowio'), JSON.stringify(result, null, 2), (err)=>{
 		})
@@ -239,29 +242,30 @@ const extractLogicFromFunction=(index, file_id, extract_func=true, extract_studi
 	let promise_container = drawionode.getSimpleBlockFromLibrary(basics_lib, 'container')
   console.log(index[file_id])
   if (Object.keys(already_explored).includes(file_id)) return null
-  return drawionode.readDiagram(index[file_id]).then((result_decompressed)=>{
+  return drawionode.readDiagram(index[file_id]).then((read_diagram_obj)=>{
+    let diagram = read_diagram_obj['diagram']
 		let input_ids = {}
 		let output_ids = {}
 		let new_id_parent = guidGenerator()
 		new_already_explored={...already_explored}
 		new_already_explored[file_id]=new_id_parent
-		let title = drawionode.getClearLabels(result_decompressed.findChildrenRecursiveObjectFilter( {'flowio_key':'name'}))[0]
+		let title = drawionode.getClearLabels(diagram.findChildrenRecursiveObjectFilter( {'flowio_key':'name'}))[0]
 		let all_blocks = []
-		if (isStudy(result_decompressed)) {
-			let databases = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'database'})
-			let databases_modified = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'database_modified'})
+		if (isStudy(diagram)) {
+			let databases = diagram.findChildrenRecursiveObjectFilter({'flowio_key':'database'})
+			let databases_modified = diagram.findChildrenRecursiveObjectFilter({'flowio_key':'database_modified'})
 			all_blocks=[...databases, ...databases_modified]
-		} else if (isFunction(result_decompressed)) {
-			let input_cells = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'input_func'})
-			let output_cells = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'output_func'})
+		} else if (isFunction(diagram)) {
+			let input_cells = diagram.findChildrenRecursiveObjectFilter({'flowio_key':'input_func'})
+			let output_cells = diagram.findChildrenRecursiveObjectFilter({'flowio_key':'output_func'})
 			all_blocks=[...input_cells, ...output_cells]
 		}
-		let studies_small = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'study'})
-		let function_cells_small = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'function'})
+		let studies_small = diagram.findChildrenRecursiveObjectFilter({'flowio_key':'study'})
+		let function_cells_small = diagram.findChildrenRecursiveObjectFilter({'flowio_key':'function'})
 		all_blocks=[...all_blocks, ...function_cells_small, ...studies_small]
 
-    let input_cells_small = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'input'})
-		let output_cells_small = result_decompressed.findChildrenRecursiveObjectFilter({'flowio_key':'output'})
+    let input_cells_small = diagram.findChildrenRecursiveObjectFilter({'flowio_key':'input'})
+		let output_cells_small = diagram.findChildrenRecursiveObjectFilter({'flowio_key':'output'})
 		let children_of_all_blocks = [...input_cells_small,...output_cells_small]
 
     //console.log(function_cells_small,input_cells_small,output_cells_small)
@@ -294,10 +298,6 @@ const extractLogicFromFunction=(index, file_id, extract_func=true, extract_studi
 			let cells_to_extract = []
 			if (extract_func)cells_to_extract=[...cells_to_extract, ...function_cells_small]
 			if (extract_studies) cells_to_extract=[...cells_to_extract,...studies_small]
-			/*cells_to_extract = cells_to_extract.filter((cell, pos)=>{
-				return !Object.keys(new_already_explored).includes(cell.object.$.flowio_id)&& cells_to_extract.indexOf(cell) == pos;
-			})*/
-			//console.log('cells_to_extract',cells_to_extract)
 			extract_logic_promises = cells_to_extract.reduce((acc,func)=>{
 				if (acc.length==0){
 					//console.log('tal2', acc)
@@ -316,27 +316,16 @@ const extractLogicFromFunction=(index, file_id, extract_func=true, extract_studi
 				}))].filter((item)=>item!=null)
 			},[])
 		}
-
-		//console.log('hey',JSON.stringify(func_logic_promises))
     return Promise.all([...extract_logic_promises,promise_container]).then((all_promises_results)=>{
       all_promises_results = all_promises_results.filter((item)=>item!=null)
       let container = all_promises_results[all_promises_results.length-1]
 			let all_func = all_promises_results.slice(0,all_promises_results.length-1)
-			//console.log('logic_promises',all_func)
 			let container_modified = drawionode.modifySimpleBlock(container[0], new_id_parent, root_id, title, x, y, width_total, height_total)
       all_blocks = all_blocks.map((item, index)=>{
         let geo = item.getGeometry()
       	return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
       })
-      /*output_cells = output_cells.map((item, index)=>{
-        let geo = item.getGeometry()
-        return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
-			})
-      function_cells_small = function_cells_small.map((item, index)=>{
-        let geo = item.getGeometry()
-        return drawionode.modifySimpleBlock(item,null,new_id_parent,null,geo.x-x_min,padding_top+geo.y-y_min)
-      })*/
-			let edges = drawionode.findEdges(result_decompressed, [...all_blocks,...children_of_all_blocks])
+			let edges = drawionode.findEdges(diagram, [...all_blocks,...children_of_all_blocks])
 				.map((item)=>{
           let new_edge = drawionode.removeEdgePoints(item)
           //canviar style dels edges
@@ -353,20 +342,7 @@ const extractLogicFromFunction=(index, file_id, extract_func=true, extract_studi
 
 	})
 }
-/*const changeParent=(xml_obj, new_id_parent)=>{
-	let new_xml_obj = {...xml_obj}
-	Object.keys(xml_obj).forEach((key)=>{
-		if (Array.isArray(new_xml_obj[key])) {
-			new_xml_obj[key]
-		}
 
-		if(new_xml_obj[key].$.parent){
-			new_xml_obj[key].$.parent=new_id_parent
-		}
-
-	})
-
-}*/
 const extractLogicFromFile=(index,file_id)=>{
 
 	if (!index[file_id]) return
@@ -383,14 +359,15 @@ const extractLogicFromFile=(index,file_id)=>{
 
 const createMdFile = (index, file_id)=>{
 	if (!index[file_id]) return
-	return drawionode.readDiagram(index[file_id]).then((result_decompressed)=>{
-		let title = drawionode.getClearLabels(result_decompressed.findChildrenRecursiveObjectFilter( {'flowio_key':'name'}))[0]
-		let description =drawionode.getClearLabels(result_decompressed.findChildrenRecursiveObjectFilter( {'flowio_key':'description'}))[0]
-		if (isStudy(result_decompressed)){
+	return drawionode.readDiagram(index[file_id]).then((read_diagram_obj)=>{
+    let diagram = read_diagram_obj['diagram']
+		let title = drawionode.getClearLabels(diagram.findChildrenRecursiveObjectFilter( {'flowio_key':'name'}))[0]
+		let description =drawionode.getClearLabels(diagram.findChildrenRecursiveObjectFilter( {'flowio_key':'description'}))[0]
+		if (isStudy(diagram)){
 
-		}else if (isDatabase(result_decompressed)){
+		}else if (isDatabase(diagram)){
 
-		}else if (isFunction(result_decompressed)){
+		}else if (isFunction(diagram)){
 
 		}
 		return `## ${title} {${file_id}}

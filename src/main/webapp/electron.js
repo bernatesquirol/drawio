@@ -55,13 +55,14 @@ function loadLocalLibraries (win,query){
 	flowio.importLibraryFlowio(importlocallib)
 	if(query['flowio_path']){
 		if(!Array.isArray(query['flowio_path'])) query['flowio_path']=[query['flowio_path']]
+
 		query['flowio_path'].forEach((file_path)=>{
 			flowio.importLocalLibraries(importlocallib, file_path, file_path, null)
 			let index = flowio.createFileIndex(file_path).then((index)=>{
 				//3659174697640273
-				
+				console.log('he',index)
 				//flowio.createDocumentation(index,file_path,file_path)//.then((data)=>console.log(data))
-				flowio.extractLogicFromFile(index,'46443371157363740')//.then((data)=>console.log(data))//(53198770598448880) (35184372089326284) 46443371157363740
+				flowio.extractLogicFromFile(index,'OrIqFrGUbtTdJgoIKJt4')//.then((data)=>console.log(data))//(53198770598448880) (35184372089326284) 46443371157363740
 			})
 			//console.log(index)
 
@@ -116,7 +117,7 @@ function createWindow (opt = {})
 	mainWindow.loadURL(wurl)
 
 	// Open the DevTools.
-	if (__DEV__)//
+	if (true)//
 	{
 		mainWindow.webContents.openDevTools()
 	}

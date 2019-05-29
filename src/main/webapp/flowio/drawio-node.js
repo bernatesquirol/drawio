@@ -371,12 +371,19 @@ const groupBy_values = (array, func)=>{
   },{})
 }
 
+const getDiagramId = (path)=>{
+  let data = fs.readFileSync(path,'utf8')
+  let match_regex =(/<diagram id="(?<id>.+?)"/g).exec(data) //.groups.id
+  return match_regex.groups.id
+}
+
 const readDiagram = (path, opts={})=>{
   return fs.promises.readFile(path,'utf8').then((data)=>{
     return parseStringDrawio(data).then((data_value)=>{
       let compressed = data_value['mxfile']['diagram'][0]._;
+      console.log(data_value['mxfile']['diagram'][0].$.id)
       return parseStringDrawio(decompress(compressed),opts).then((result_decompressed)=>{
-        return new mxObject(result_decompressed)
+        return  { 'diagram':new mxObject(result_decompressed), 'id':data_value['mxfile']['diagram'][0].$.id }//new mxObject(result_decompressed)
       })
     })
   })
@@ -408,7 +415,7 @@ module.exports={
   getSimpleBlockFromLibrary: getSimpleBlockFromLibrary,
   getClearLabels:getClearLabels,
   modifySimpleBlock:modifySimpleBlock,
-
+  getDiagramId:getDiagramId,
   getDiagram:getDiagram,
   //findRelated:findRelated,
   findAllAndEdges:findAllAndEdges,
