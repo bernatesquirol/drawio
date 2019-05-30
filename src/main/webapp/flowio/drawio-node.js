@@ -15,6 +15,8 @@ class mxObject extends Object {
     this['_isEdge']=obj.mxCell!=null&&obj.mxCell.mxGeometry!=null&&obj.mxCell.$.source!=null&&obj.mxCell.$.target!=null
     if(this['_isSimpleBlock']){
       let geo = this.object.mxCell[0].mxGeometry[0]
+      if(geo.$.x==null) geo.$.x=0
+      if(geo.$.y==null) geo.$.y=0
       this.object.mxCell[0].mxGeometry[0].$ = {
         ...geo.$,
         x:parseInt(geo.$.x),
@@ -362,14 +364,6 @@ const explicitChildrenToNot=(obj)=>{
 }
 
 
-const groupBy_values = (array, func)=>{
-  let groupby_val = _.groupBy(array,func)
-  return Object.keys(groupby_val).reduce((final_object, key, index, array)=>{
-    let values_key = groupby_val[key].map((obj)=>obj[key])
-    final_object[key]=values_key
-    return final_object
-  },{})
-}
 
 const getDiagramId = (path)=>{
   let data = fs.readFileSync(path,'utf8')
@@ -389,12 +383,22 @@ const readDiagram = (path, opts={})=>{
   })
 }
 
+const groupBy_values = (array, func)=>{
+  let groupby_val = _.groupBy(array,func)
+  return Object.keys(groupby_val).reduce((final_object, key, index, array)=>{
+    let values_key = groupby_val[key].map((obj)=>obj[key])
+    final_object[key]=values_key
+    return final_object
+  },{})
+}
 const getDiagram = (array_obj, root_id)=>{
   let real_obj = array_obj.map((item)=>
   {
     return item.getOriginal()
   })
-  let root = {'mxCell':[],...groupBy_values(real_obj, Object.keys)}
+  
+  let root = {...groupBy_values(real_obj, Object.keys)}
+  if (root['mxCell']==null) root['mxCell']=[]  
   //console.log(root['mxCell'])
   root['mxCell']=[...root['mxCell'],{$: {id: "0"}},{$: {id: root_id, parent: "0"}}]
   return {'mxGraphModel':{'root':root}}

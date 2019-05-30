@@ -42,7 +42,6 @@ const createMinimizedFunctionCell = (inputs, outputs, flowio_id, function_name, 
 			let output_blocks = outputs.map((output_text, index)=>(drawionode.modifySimpleBlock(block_o=output,id='output-'+guidGenerator(),id_parent=real_func_id, output_text, x=2*padding_side+Number(geo_input.width), y=index*(Number(geo_output.height)+top_padding)+top_padding)))
 			// change style
 			if(mxCell_func_style) func.changeStyle(mxCell_func_style)
-			//console.log(geo_func.width,geo_input.width, geo_output.width)
 			let func_block = drawionode.modifySimpleBlock(func,id=real_func_id, id_parent=ROOT_ID, function_name, x=null, y=null, width=Number(geo_output.width)+Number(geo_input.width)+3*padding_side, height=(Number(geo_output.height)+top_padding)*Math.max(inputs.length, outputs.length)+top_padding, flowio_id=flowio_id)
 			return [func_block].concat(input_blocks).concat(output_blocks)
 	})
@@ -64,7 +63,6 @@ const getShape=(xml_obj)=>{
 
 const importFunction=(diagram, file_id)=>{
 	let shape = getShape(diagram)
-	//console.log(shape)
 	let inputs = drawionode.getClearLabels(diagram.findChildrenRecursiveObjectFilter({'flowio_key':'input_func'}))
 	let name_func = drawionode.getClearLabels(diagram.findChildrenRecursiveObjectFilter({'flowio_key':'name'}))[0]
 	let outputs = drawionode.getClearLabels(diagram.findChildrenRecursiveObjectFilter({'flowio_key':'output_func'}))
@@ -73,11 +71,9 @@ const importFunction=(diagram, file_id)=>{
 const importBlock=(diagram, file_id, flowio_key)=>{
 	let basics_lib = getBasics()
 	let function_promise = drawionode.getSimpleBlockFromLibrary(basics_lib, 'function')
-  //console.log(function_promise)
 	let name = drawionode.getClearLabels(diagram.findChildrenRecursiveObjectFilter({'flowio_key':'name'}))[0]
 
   let shape = getShape(diagram)
-	//console.log(JSON.stringify(shapes,null,2))
 	return function_promise.then((data)=>{
 		let func = data[0]
 		if(shape){
@@ -118,7 +114,6 @@ function importLocalLibraries(loadLocalLibrary, file_path, original_file_path, b
 			let result = fs.promises.readFile(file_path,'utf8').then((data)=>{
 				return {'xml':{'key':key_lib, 'value':data}}
 			})
-			//console.log(result)
 			return result
 		}
 		if (key_lib.slice(-7)=='.drawio'){
@@ -151,7 +146,6 @@ function importLocalLibraries(loadLocalLibrary, file_path, original_file_path, b
 	}else if(fs.lstatSync(file_path).isDirectory()) {
 		return fs.promises.readdir(file_path).then((files)=>{
 			return Promise.all(files.map((file)=>importLocalLibraries(loadLocalLibrary,path.join(file_path, file),original_file_path,basics_file_path))).then((array_of_data)=>{
-				//console.log(array_of_data)
 				let xmls = array_of_data.filter((obj)=>obj!=null&&Object.keys(obj)[0]=='xml')
 				let drawios = array_of_data.filter((obj)=>obj!=null&&Object.keys(obj)[0]=='drawio')
 				let folders = array_of_data.filter((obj)=>obj!=null&&Array.isArray(obj))
@@ -166,7 +160,6 @@ function importLocalLibraries(loadLocalLibrary, file_path, original_file_path, b
 					let title_lib = path.relative(original_file_path, file_path)?path.relative(original_file_path, file_path):'./';
 					loadLocalLibrary(title_lib, value_drawios)
 				}
-				//console.log(xmls.length, drawios.length, folders.length)
 				return xmls.concat(drawios).concat(folders)
 			})
 		})
@@ -189,18 +182,14 @@ const createSidebar=(file_path)=>{
 }
 
 const printSidebar=(sidebar,deep=1)=>{
-  //console.log(sidebar)
   if (typeof sidebar === 'string') {return "-  "+sidebar+"("+sidebar+")"}
   let key = Object.keys(sidebar)[0]
-  //console.log(key,Array.isArray(sidebar[key]))
   let final_tema = sidebar[key].map((value)=>printSidebar(value, deep+1))
-  //console.log(final_tema)
   let prefix ='\n'+'  '.repeat(deep)
   return key+prefix+(final_tema.join(separador=prefix))
 }
 
 const createFlowioIndex=(original_path, added_path='./')=>{
-  //console.log(original_path,added_path)
   let file_path = path.join(original_path,added_path)
   let lstat = fs.lstatSync(file_path)
   if(lstat.isDirectory()){
@@ -217,14 +206,13 @@ const createFlowioIndex=(original_path, added_path='./')=>{
   }else if(lstat.isFile() && file_path.slice(-7)=='.drawio'){
     let diagram_obj = drawionode.readDiagram(file_path)
     let file_id = drawionode.getDiagramId(file_path)
-    console.log('file',file_id)
+    //console.log('file',file_id)
     let return_val = {}
     return_val[file_id]=file_path
     return return_val
   }
 }
 const createFileIndex=(original_path)=>{
-  console.log('hey')
   return createFlowioIndex(original_path).then((result)=>{
     fs.writeFile(path.join(original_path,'.flowio'), JSON.stringify(result, null, 2), (err)=>{
 		})
@@ -238,9 +226,8 @@ const getFileIndex=(original_path)=>{
 //returns null OR
 const extractLogicFromFunction=(index, file_id, extract_func=true, extract_studies=true, max_depth=null, already_explored={}, depth=0, root_id=ROOT_ID, x=0, y=0, padding_top=20)=>{
 	let basics_lib = getBasics()
-  console.log(file_id, already_explored)
 	let promise_container = drawionode.getSimpleBlockFromLibrary(basics_lib, 'container')
-  console.log(index[file_id])
+  
   if (Object.keys(already_explored).includes(file_id)) return null
   return drawionode.readDiagram(index[file_id]).then((read_diagram_obj)=>{
     let diagram = read_diagram_obj['diagram']
@@ -293,6 +280,7 @@ const extractLogicFromFunction=(index, file_id, extract_func=true, extract_studi
 		let width_total =  x_max-x_min
 		let height_total =  padding_top+y_max-y_min
 		//cascade of function promises
+		
 		let extract_logic_promises = []
 		if(max_depth==null || depth<max_depth){
 			let cells_to_extract = []
@@ -301,7 +289,7 @@ const extractLogicFromFunction=(index, file_id, extract_func=true, extract_studi
 			extract_logic_promises = cells_to_extract.reduce((acc,func)=>{
 				if (acc.length==0){
 					//console.log('tal2', acc)
-					return [extractLogicFromFunction(index,func.object.$.flowio_id, extract_func, extract_studies, max_depth, new_already_explored,	depth+1,ROOT_ID,x, height_total+padding_top)]
+					return [extractLogicFromFunction(index,func.object.$.flowio_id, extract_func, extract_studies, max_depth, new_already_explored,	depth+1,ROOT_ID,x, y+height_total+padding_top)]
 				}
 				//console.log(acc,acc[acc.length-1], func, cells_to_extract)
 				return [...acc,(acc[acc.length-1].then((result)=>{
@@ -336,7 +324,8 @@ const extractLogicFromFunction=(index, file_id, extract_func=true, extract_studi
           return new_edge
         })
 			let all_func_blocks = all_func.flatMap((item)=>item.blocks)
-			let all_blocks_to_return = [container_modified,...edges,...all_func_blocks,...all_blocks,...children_of_all_blocks]
+			let all_blocks_to_return = [...edges,container_modified,...all_func_blocks,...all_blocks,...children_of_all_blocks]
+		
       return {'x':x,'y':y,'width':width_total, 'height':height_total,'blocks':all_blocks_to_return, 'already_explored':new_already_explored}
     })
 
@@ -347,11 +336,14 @@ const extractLogicFromFile=(index,file_id)=>{
 
 	if (!index[file_id]) return
   return extractLogicFromFunction(index, file_id).then((func_extraction)=>{
-    let all_blocks = func_extraction['blocks']
-    //console.log('ei',all_blocks)
-    let mxGraph = drawionode.getDiagram(all_blocks, ROOT_ID)
-    //console.log(JSON.stringify(mxGraph,null,1))
-    fs.writeFileSync('C:\\Users\\besquirol\\PDU\\prova_func.drawio',drawionode.toString(mxGraph,{headless:true}))
+		let all_blocks = func_extraction['blocks']
+		let all_blocks_sorted = all_blocks.sort((a,b)=>{
+			if(a._isEdge) return 1
+			else return 0
+		})
+		
+    let mxGraph = drawionode.getDiagram(all_blocks_sorted, ROOT_ID)
+    fs.writeFileSync('C:\\Users\\bernat\\PDU\\prova_func.drawio',drawionode.toString(mxGraph,{headless:true}))
     console.log('OK')
   })
 
@@ -383,7 +375,6 @@ function createDocumentation(index, file_path, flowio_path, depth=1){
 		let key_lib = path.basename(file_path)
 		if (key_lib.slice(-7)=='.drawio'){
 			let file_id = fs.lstatSync(file_path).ino
-			//console.log(file_id, file_path)
 			return createMdFile(index,file_id).then((data)=>{
 				let path_without_extension = file_path.slice(0,-7)
 				let path_file = path.relative(flowio_path,path_without_extension)
@@ -393,7 +384,6 @@ function createDocumentation(index, file_path, flowio_path, depth=1){
 		}
 	}else if(fs.lstatSync(file_path).isDirectory()) {
 		let relative_folder = path.relative(flowio_path,file_path)
-		//console.log(path.join(flowio_path,'./_docs', relative_folder))
 		if(!fs.existsSync(path.join(flowio_path,'./_docs', relative_folder))) fs.mkdirSync(path.join(flowio_path,'./_docs', relative_folder));
 		if(!fs.existsSync(path.join(flowio_path,'./_docs', relative_folder, './README.md'))) fs.writeFileSync(path.join(flowio_path,'./_docs', relative_folder, './README.md'),'docs');
 		return fs.promises.readdir(file_path).then((files)=>{

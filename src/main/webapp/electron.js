@@ -61,8 +61,8 @@ function loadLocalLibraries (win,query){
 			let index = flowio.createFileIndex(file_path).then((index)=>{
 				//3659174697640273
 				console.log('he',index)
-				//flowio.createDocumentation(index,file_path,file_path)//.then((data)=>console.log(data))
-				flowio.extractLogicFromFile(index,'OrIqFrGUbtTdJgoIKJt4')//.then((data)=>console.log(data))//(53198770598448880) (35184372089326284) 46443371157363740
+				//flowio.createDocumentation(index,file_path,file_path)//.then((data)=>console.log(data)) 
+				flowio.extractLogicFromFile(index,'M8zLFjm6hnYj_KY6W-Lt')//OrIqFrGUbtTdJgoIKJt4
 			})
 			//console.log(index)
 
@@ -117,7 +117,7 @@ function createWindow (opt = {})
 	mainWindow.loadURL(wurl)
 
 	// Open the DevTools.
-	if (true)//
+	if (__DEV__)//
 	{
 		mainWindow.webContents.openDevTools()
 	}
