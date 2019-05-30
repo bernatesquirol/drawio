@@ -47,7 +47,7 @@ const DEFAULT_OFFLINE_QUERY = {
 
 let windowsRegistry = []
 function loadLocalLibrary(win, key, value){
-	win.webContents.send('args-obj', {'args':{'llib':{key, value}}});
+	win.webContents.send('args-obj', {'llib':{key, value}});
 }
 
 function loadLocalLibraries (win,query){
@@ -55,17 +55,8 @@ function loadLocalLibraries (win,query){
 	flowio.importLibraryFlowio(importlocallib)
 	if(query['flowio_path']){
 		if(!Array.isArray(query['flowio_path'])) query['flowio_path']=[query['flowio_path']]
-
 		query['flowio_path'].forEach((file_path)=>{
 			flowio.importLocalLibraries(importlocallib, file_path, file_path, null)
-			let index = flowio.createFileIndex(file_path).then((index)=>{
-				//3659174697640273
-				console.log('he',index)
-				//flowio.createDocumentation(index,file_p4ath,file_path)//.then((data)=>console.log(data)) 
-				flowio.extractLogicFromFile(index,'M8zLFjm6hnYj_KY6W-Lt')//OrIqFrGUbtTdJgoIKJt4
-			})
-			//console.log(index)
-
 		})
 	}
 }
@@ -169,8 +160,10 @@ function createWindow (opt = {})
 		console.log('Window closed idx:%d', index)
 		windowsRegistry.splice(index, 1)
 	})
+	
 	mainWindow.webContents.on('dom-ready',()=>{
 		let query = getUserParams()
+		mainWindow.webContents.send('args-obj', {'loadFlowio':{'data':null,'name':'Untitled diagram.drawio'}});	
 		loadLocalLibraries(mainWindow, query)
 	})
 	mainWindow.webContents.on('did-fail-load', function(err)
@@ -241,26 +234,31 @@ app.on('ready', e =>
     });
 
 	let template = [{
-	    label: app.getName(),
+	    label: 'flow.io',
 	    submenu: [
 	      {
-	        label: 'Website',
-	        click() { shell.openExternal('https://about.draw.io'); }
-	      },
-	      {
-	        label: 'Support',
-	        click() { shell.openExternal('https://about.draw.io/support'); }
-	      },
+	        label: 'flowio...',
+	        click() { shell.openItem(app.getPath('userData')); }
+				},
+				{
+	        label: 'Expand diagram',
+	        click() { 
+						let promise_index = flowio.createFileIndex(getUserParams()['flowio_path'])
+						var paths = dialog.showOpenDialog({properties: ['openFile']});	
+						if (paths !== undefined && paths[0] != null)
+		        {
+							promise_index.then((index)=>{
+								flowio.extractLogicFromFile(index,paths[0]).then((result)=>{
+									console.log(result.name)
+									win.webContents.send('args-obj', {'loadFlowio':{'data':result.data, 'name':result.name}});
+								})
+							})
+						}
+					}
+				},
 	      {
 	        type: 'separator'
 	      },
-				{
-	        label: 'flowio...',
-	        click() { shell.openItem(app.getPath('userData')); }
-	      },
-				{
-				 type: 'separator'
-			 	},
 	      {
 	        label: 'Quit',
 	        accelerator: 'CmdOrCtrl+Q',

@@ -1,6 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const drawionode = require('./drawio-node')
+const _ = require('./lodash');
 const ROOT_ID = 1
 /*
  **********************
@@ -180,7 +181,7 @@ const importLocalLibraries = (loadLocalLibrary, file_path, original_file_path)=>
         let file_id = read_diagram_obj['id']//fs.lstatSync(file_path).ino
 				let xml_data = null
 				if (isFunction(diagram)){
-					xml_data = importFunction(diagram,file_id,basics_file_path)
+					xml_data = importFunction(diagram,file_id)
 				}else if (isStudy(diagram)){
 					xml_data = importBlock(diagram, file_id, 'study')
 					//let id = diagram.findChildrenRecursiveObjectFilter( {'flowio_key':'database_modified'})[0].object.$.id
@@ -321,8 +322,6 @@ const extractLogicFromFunction=(index, file_id, extract_func=true, extract_studi
     let input_cells_small = diagram.findChildrenRecursiveObjectFilter({'flowio_key':'input'})
 		let output_cells_small = diagram.findChildrenRecursiveObjectFilter({'flowio_key':'output'})
 		let children_of_all_blocks = [...input_cells_small,...output_cells_small]
-
-    //console.log(function_cells_small,input_cells_small,output_cells_small)
     let x_min = all_blocks.reduce((acc,item)=>{
       let new_x = parseInt(item.object.mxCell[0].mxGeometry[0].$.x)
       if (new_x<acc) return new_x
@@ -364,7 +363,6 @@ const extractLogicFromFunction=(index, file_id, extract_func=true, extract_studi
 					let new_new_already_explored = result['already_explored']
 
 					let return_val =  extractLogicFromFunction(index,func.object.$.flowio_id, extract_func, extract_studies, max_depth, new_new_already_explored, depth+1,ROOT_ID,x_func+width, y_func)
-					//console.log('tal',return_val)
 					return return_val
 				}))].filter((item)=>item!=null)
 			},[])
@@ -390,25 +388,24 @@ const extractLogicFromFunction=(index, file_id, extract_func=true, extract_studi
         })
 			let all_func_blocks = all_func.flatMap((item)=>item.blocks)
 			let all_blocks_to_return = [...edges,container_modified,...all_func_blocks,...all_blocks,...children_of_all_blocks]
-		
-      return {'x':x,'y':y,'width':width_total, 'height':height_total,'blocks':all_blocks_to_return, 'already_explored':new_already_explored}
+				.sort((a,b)=>{
+					//edges per sobre
+					if(a._isEdge) return 1
+					else return 0
+				})
+      return {'title':title,'x':x,'y':y,'width':width_total, 'height':height_total,'blocks':all_blocks_to_return, 'already_explored':new_already_explored}
     })
 
 	})
 }
 
-const extractLogicFromFile=(index,file_id)=>{
-	if (!index[file_id]) return
-  return extractLogicFromFunction(index, file_id).then((func_extraction)=>{
+const extractLogicFromFile=(index,path)=>{
+	let paths_x_id = _.invert(index)
+	if (!paths_x_id[path]) return
+  return extractLogicFromFunction(index, paths_x_id[path]).then((func_extraction)=>{
 		let all_blocks = func_extraction['blocks']
-		let all_blocks_sorted = all_blocks.sort((a,b)=>{
-			if(a._isEdge) return 1
-			else return 0
-		})
-		
-    let mxGraph = drawionode.getDiagram(all_blocks_sorted, ROOT_ID)
-    fs.writeFileSync('C:\\Users\\bernat\\PDU\\prova_func.drawio',drawionode.toString(mxGraph,{headless:true}))
-    console.log('OK')
+		let mxGraph = drawionode.getDiagram(all_blocks, ROOT_ID)
+		return {'data':drawionode.toString(mxGraph,{headless:true}),'name':func_extraction['title']+'-expanded.flowio'}
   })
 
 }

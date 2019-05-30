@@ -49,7 +49,6 @@ class mxObject extends Object {
     let real_children = []
     return Object.keys(values).filter((key)=>key!='$').reduce((agg,nodeType)=>{
       return [...agg,...values[nodeType].map((real_child)=>{
-        //console.log(real_child)
         let obj = {}
         obj[nodeType]={...real_child}
         return new mxObject(obj)
@@ -286,7 +285,6 @@ const getSimpleBlockFromLibrary = function(library, title){
         return Promise.all(JSON.parse(list_blocks).filter((block)=>(block.title==title))
                   .map((obj)=>(parseStringDrawio(decompress(obj.xml)).then((decompressed_block)=>{
                     let obj_val = decompressed_block.mxGraphModel.root[0]['object'][0]
-                    //console.log('quedius',obj_val)
                     //cleaning upper layers
                     let return_obj = {}
                     return_obj['object']=obj_val
@@ -314,7 +312,6 @@ const modifySimpleBlock = (block, id=null, id_parent=null,new_title=null, x=null
     //let block = JSON.parse(JSON.stringify(block_o))
 
     if (new_title!=null) block.changeProp('label',new_title)
-    //console.log(new_title, block.object.$.label)
     if (width!=null) block.changeGeometrySimpleBlock('width',width) //block.object.mxCell[0].mxGeometry[0].$.width = width
     if (height!=null) block.changeGeometrySimpleBlock('height',height)//block.object.mxCell[0].mxGeometry[0].$.height = height
     if (x!=null) block.changeGeometrySimpleBlock('x',x)
@@ -413,6 +410,7 @@ const groupBy_values = (array, func)=>{
  * @return {Object} the big diagram ready to shine 
  */
 const getDiagram = (array_obj, root_id)=>{
+  if (!Array.isArray(array_obj)) array_obj=[array_obj]
   let real_obj = array_obj.map((item)=>
   {
     return item.getOriginal()
@@ -420,7 +418,6 @@ const getDiagram = (array_obj, root_id)=>{
   
   let root = {...groupBy_values(real_obj, Object.keys)}
   if (root['mxCell']==null) root['mxCell']=[]  
-  //console.log(root['mxCell'])
   root['mxCell']=[...root['mxCell'],{$: {id: "0"}},{$: {id: root_id, parent: "0"}}]
   return {'mxGraphModel':{'root':root}}
 

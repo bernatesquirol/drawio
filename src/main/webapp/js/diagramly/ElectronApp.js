@@ -366,7 +366,7 @@ FeedbackDialog.feedbackUrl = 'https://log.draw.io/email';
 	App.prototype.loadArgs = function(argsObj)
 	{
 		var paths = argsObj.args;
-
+		
 		// If a file is passed
 		if (paths !== undefined && paths[0] != null)
 		{
@@ -412,10 +412,17 @@ FeedbackDialog.feedbackUrl = 'https://log.draw.io/email';
 			var data = this.emptyDiagramXml;
 			var file = new LocalFile(this, data, title, null);
 			this.fileCreated(file, null, null, null);
-		}else if (argsObj.args['llib']!=null){
-			console.log('hey')
-			var library = new LocalLibrary(this, argsObj.args['llib'].value,argsObj.args['llib'].key)
+		}else if (argsObj['llib']!=null){
+			//console.log('hey')
+			var library = new LocalLibrary(this, argsObj['llib'].value,argsObj['llib'].key)
 			this.loadLibrary(library)
+		}else if (argsObj['loadFlowio']!=null){
+			//console.log('hey')
+			if ( argsObj['loadFlowio'].data==null)  argsObj['loadFlowio'].data=this.emptyDiagramXml
+			var file = new LocalFile(this, argsObj['loadFlowio'].data,  argsObj['loadFlowio'].name);
+			//file.fileObject = fileEntry;
+			//file.stat = stat;
+			this.fileLoaded(file);
 		}
 	}
 
