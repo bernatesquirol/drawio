@@ -297,7 +297,7 @@ const getSimpleBlockFromLibrary = function(library, title){
 }
 
 
-/*
+/**
  * Modifies a 'simpleblock': object -> mxCell's[0] -> mxGeometry's[0]
  * @param  {Object} {object:{mxcell:[{mxgeometry:[{}]}}]}
  * @param  {String} id of the simpleblock
@@ -325,7 +325,7 @@ const modifySimpleBlock = (block, id=null, id_parent=null,new_title=null, x=null
     return block
 }
 
-/*
+/**
  * Gets geometry object {x,y,width,height} from a 'simpleblock': object -> mxCell's[0] -> mxGeometry's[0]
  * @param  {Object} {object:{mxcell:[{mxgeometry:[{}]}}]}
  * @return {Object} x, y, width, height to int
@@ -338,7 +338,7 @@ const getGeoSimpleBlock = (block)=>{
     height:parseInt(block.object.mxCell[0].mxGeometry[0].$.height)
   }
 }
-/*
+/**
  * Removes anchor points of edge
  * @param  {Object} {mxcell:[{mxgeometry:[{}]}}
  * @return {Object} x, y, width, height to int
@@ -348,7 +348,7 @@ const removeEdgePoints = (edge)=>{
   new_edge.mxCell.mxGeometry[0]={$:new_edge.mxCell.mxGeometry[0].$}
   return new_edge
 }
-/*
+/**
  * Changes xml2js children explicit to not explicit
  * @param  {Object} mxobj
  * @return {Object} mxobj
@@ -363,19 +363,27 @@ const explicitChildrenToNot=(obj)=>{
   return new_obj
 }
 
-
-
+/**
+ * Reads diagram to fins the id: sync
+ * @param  {String} path where the identified diagram resides
+ * @return {String} id of the diagram
+ */
 const getDiagramId = (path)=>{
   let data = fs.readFileSync(path,'utf8')
   let match_regex =(/<diagram id="(?<id>.+?)"/g).exec(data) //.groups.id
   return match_regex.groups.id
 }
 
+/**
+ * Reads diagram & decompresses: async
+ * @param  {String} path where the identified diagram resides
+ * @param  {Object} opts opts to parse xml2js 
+ * @return {String} id of the diagram
+ */
 const readDiagram = (path, opts={})=>{
   return fs.promises.readFile(path,'utf8').then((data)=>{
     return parseStringDrawio(data).then((data_value)=>{
       let compressed = data_value['mxfile']['diagram'][0]._;
-      console.log(data_value['mxfile']['diagram'][0].$.id)
       return parseStringDrawio(decompress(compressed),opts).then((result_decompressed)=>{
         return  { 'diagram':new mxObject(result_decompressed), 'id':data_value['mxfile']['diagram'][0].$.id }//new mxObject(result_decompressed)
       })
@@ -383,6 +391,12 @@ const readDiagram = (path, opts={})=>{
   })
 }
 
+/**
+ * Groups by a function given
+ * @param  {Array} array of blocks
+ * @param  {function} func to groupby the blocks
+ * @return {Object} grouped the array by the function result 
+ */
 const groupBy_values = (array, func)=>{
   let groupby_val = _.groupBy(array,func)
   return Object.keys(groupby_val).reduce((final_object, key, index, array)=>{
@@ -391,6 +405,13 @@ const groupBy_values = (array, func)=>{
     return final_object
   },{})
 }
+
+/**
+ * Gets whole diagram from given mxObjects (id=0 & id=1 at the end of mxCells)
+ * @param  {Array[mxObject]} array_obj of blocks
+ * @param  {String} root_id the root_id all blocks refer to
+ * @return {Object} the big diagram ready to shine 
+ */
 const getDiagram = (array_obj, root_id)=>{
   let real_obj = array_obj.map((item)=>
   {

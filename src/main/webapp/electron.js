@@ -61,7 +61,7 @@ function loadLocalLibraries (win,query){
 			let index = flowio.createFileIndex(file_path).then((index)=>{
 				//3659174697640273
 				console.log('he',index)
-				//flowio.createDocumentation(index,file_path,file_path)//.then((data)=>console.log(data)) 
+				//flowio.createDocumentation(index,file_p4ath,file_path)//.then((data)=>console.log(data)) 
 				flowio.extractLogicFromFile(index,'M8zLFjm6hnYj_KY6W-Lt')//OrIqFrGUbtTdJgoIKJt4
 			})
 			//console.log(index)
