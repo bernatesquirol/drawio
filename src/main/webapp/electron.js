@@ -45,6 +45,9 @@ const DEFAULT_OFFLINE_QUERY = {
 	//'basics_file_path':path.join(app.getPath('userData'),'basics.xml')
 }
 
+app.setName('flowio')
+app.setPath('userData',path.join(app.getPath('appData'),app.getName()))
+
 let windowsRegistry = []
 function loadLocalLibrary(win, key, value){
 	win.webContents.send('args-obj', {'llib':{key, value}});

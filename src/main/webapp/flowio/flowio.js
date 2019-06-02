@@ -33,14 +33,14 @@ const importLibraryFlowio=(loadLocalLibrary)=>{
 
 /**
  * Returns ids for the blocks 
- * XXXX-XXXX-XXXX-XXXX-XXXX
+ * XXXX-XXXX-XXXX-XXXX-XXXX-XXXX
  *  @return {String} id
  */
 const guidGenerator = ()=>{
   var S4 = function() {
      return (((1+Math.random())*0x10000)|0).toString(16).substring(1);
   };
-  return (S4()+"-"+S4()+"-"+S4()+"-"+S4());
+  return (S4()+"-"+S4()+"-"+S4()+"-"+S4()+"-"+S4());
 }
 
 /**
@@ -69,8 +69,8 @@ const createMinimizedFunctionCell = (inputs, outputs, flowio_id, function_name, 
 			let output = result[2][0]
 			let geo_output = output.getGeometry()
 			// modify blocks position & name
-			let input_blocks = inputs.map((input_text, index)=>(drawionode.modifySimpleBlock(block_o=input,id='input-'+guidGenerator(),id_parent=real_func_id, input_text, x=padding_side, y=index*(Number(geo_input.height)+top_padding)+top_padding)))
-			let output_blocks = outputs.map((output_text, index)=>(drawionode.modifySimpleBlock(block_o=output,id='output-'+guidGenerator(),id_parent=real_func_id, output_text, x=2*padding_side+Number(geo_input.width), y=index*(Number(geo_output.height)+top_padding)+top_padding)))
+			let input_blocks = inputs.map((input_text, index)=>(drawionode.modifySimpleBlock(block_o=input,id=guidGenerator(),id_parent=real_func_id, input_text, x=padding_side, y=index*(Number(geo_input.height)+top_padding)+top_padding)))
+			let output_blocks = outputs.map((output_text, index)=>(drawionode.modifySimpleBlock(block_o=output,id=guidGenerator(),id_parent=real_func_id, output_text, x=2*padding_side+Number(geo_input.width), y=index*(Number(geo_output.height)+top_padding)+top_padding)))
 			// change style
 			if(mxCell_func_style) func.changeStyle(mxCell_func_style)
 			let func_block = drawionode.modifySimpleBlock(func,id=real_func_id, id_parent=ROOT_ID, function_name, x=null, y=null, width=Number(geo_output.width)+Number(geo_input.width)+3*padding_side, height=(Number(geo_output.height)+top_padding)*Math.max(inputs.length, outputs.length)+top_padding, flowio_id=flowio_id)
