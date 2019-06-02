@@ -24,7 +24,10 @@
   "homepage": "https://github.com/jgraph/drawio",
   "dependencies": {
     "commander": "^2.15.1",
-    "electron-log": "^2.2.14"
+    "electron-log": "^2.2.14",
+    "lodash": "^4.17.11",
+    "pako": "^1.0.10",
+    "xml2js": "^0.4.19"
   },
   "devDependencies": {
     "electron": "^2.0.2"

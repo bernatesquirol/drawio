@@ -1,7 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const drawionode = require('./drawio-node')
-const _ = require('./lodash');
+const _ = require('lodash');
 const ROOT_ID = 1
 /*
  **********************
