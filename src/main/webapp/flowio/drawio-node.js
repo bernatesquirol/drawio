@@ -12,7 +12,7 @@ class mxObject extends Object {
     obj && Object.assign(this, obj);
     this['_type']=Object.keys(obj)[0]
     this['_isSimpleBlock']=obj.object!=null&&obj.object.mxCell!=null&&obj.object.mxCell[0].mxGeometry!=null&&obj.object.mxCell[0].mxGeometry[0]!=null
-    this['_isEdge']=obj.mxCell!=null&&obj.mxCell.mxGeometry!=null&&obj.mxCell.$.source!=null&&obj.mxCell.$.target!=null
+    this['_isEdge']=obj.mxCell!=null&&obj.mxCell.$.edge!=null//.mxGeometry!=null&&(obj.mxCell.$.source!=null||obj.mxCell.$.target!=null)
     if(this['_isSimpleBlock']){
       let geo = this.object.mxCell[0].mxGeometry[0]
       if(geo.$.x==null) geo.$.x=0

@@ -348,7 +348,8 @@ const getFileIndex=(original_path)=>{
 const extractLogicFromFunction=(index, file_id, extract_func=true, extract_studies=true, max_depth=null, already_explored={}, depth=0, root_id=ROOT_ID, x=0, y=0, padding_top=20)=>{
 	let basics_lib = getBasics()
 	let promise_container = drawionode.getSimpleBlockFromLibrary(basics_lib, 'container')  
-  if (Object.keys(already_explored).includes(file_id)) return null
+	if (Object.keys(already_explored).includes(file_id)) return null
+	if (!index[file_id]) return null
   return drawionode.readDiagram(index[file_id]).then((read_diagram_obj)=>{
     let diagram = read_diagram_obj['diagram']
 		let input_ids = {}
@@ -431,9 +432,11 @@ const extractLogicFromFunction=(index, file_id, extract_func=true, extract_studi
 			let edges = drawionode.findEdges(diagram, [...all_blocks,...children_of_all_blocks])
 				.map((item)=>{
           let new_edge = drawionode.removeEdgePoints(item)
-          //canviar style dels edges
+					//canviar style dels edges
+					console.log('new_style',new_edge)
           let style = new_edge.getStyle()
-          let find_edgeStyle = /edgeStyle=.*;/g
+					let find_edgeStyle = /edgeStyle=.*;/g
+					console.log(style)
           let new_style = style.replace(find_edgeStyle, '')
           new_edge.changeStyle(new_style)
           return new_edge
