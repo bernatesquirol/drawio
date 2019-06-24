@@ -260,7 +260,7 @@ app.on('ready', e =>
 	    label: 'flow.io',
 	    submenu: [
 	      {
-	        label: 'flowio...',
+	        label: 'Change URL parameters',
 	        click() { shell.openItem(app.getPath('userData')); }
 				},
 				{
