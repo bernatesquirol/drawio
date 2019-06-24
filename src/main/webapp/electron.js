@@ -9,7 +9,7 @@ const app = electron.app
 const BrowserWindow = electron.BrowserWindow
 const log = require('electron-log')
 const program = require('commander')
-const flowio = require('./flowio/flowio')
+const flowio = require('./flowio-core/flowio')
 const __DEV__ = process.env.NODE_ENV === 'development'
 const DEFAULT_QUERY = {
 	'test': __DEV__ ? 1 : 0,
@@ -111,7 +111,7 @@ function createWindow (opt = {})
 	mainWindow.loadURL(wurl)
 
 	// Open the DevTools.
-	if (__DEV__)//
+	if (true)//__DEV__
 	{
 		mainWindow.webContents.openDevTools()
 	}
