@@ -11,6 +11,10 @@ const log = require('electron-log')
 const program = require('commander')
 const flowio = require('./flowio-core/flowio')
 const __DEV__ = process.env.NODE_ENV === 'development'
+
+let windowsRegistry = []
+
+/* <-- FLOWIO added */
 const DEFAULT_QUERY = {
 	'test': __DEV__ ? 1 : 0,
 	'db': 0,
@@ -44,15 +48,13 @@ const DEFAULT_OFFLINE_QUERY = {
 	'flowio_path':''
 	//'basics_file_path':path.join(app.getPath('userData'),'basics.xml')
 }
-
 app.setName('flowio')
 app.setPath('userData',path.join(app.getPath('appData'),app.getName()))
 
-let windowsRegistry = []
+
 function loadLocalLibrary(win, key, value){
 	win.webContents.send('args-obj', {'llib':{key, value}});
 }
-
 function loadLocalLibraries (win,query){
 	let importlocallib=(key, value)=>loadLocalLibrary(win, key, value)
 	flowio.importLibraryFlowio(importlocallib)
@@ -79,6 +81,8 @@ function getUserParams(must_query={}){
 	if(!Array.isArray(query['clibs'])) query['clibs']=[query['clibs']]
 	return {...query,...must_query}
 }
+/* --> */
+
 
 function createWindow (opt = {})
 {
@@ -100,18 +104,32 @@ function createWindow (opt = {})
 	windowsRegistry.push(mainWindow)
 
 	console.log('createWindow', opt)
-	let query = getUserParams()
 	let wurl = url.format(
 	{
 		pathname: `${__dirname}/index.html`,
 		protocol: 'file:',
-		query: query,
+		query: {
+			'dev': __DEV__ ? 1 : 0,
+			'drawdev': __DEV__ ? 1 : 0,
+			'test': __DEV__ ? 1 : 0,
+			'db': 0,
+			'gapi': 0,
+			'od': 0,
+			'gh': 0,
+			'tr': 0,
+			'analytics': 0,
+			'picker': 0,
+			'mode': 'device',
+			'browser': 0,
+			'export': 'https://exp.draw.io/ImageExport4/export',
+			...getUserParams()
+		},
 		slashes: true
 	})
 	mainWindow.loadURL(wurl)
 
 	// Open the DevTools.
-	if (true)//__DEV__
+	if (__DEV__)//
 	{
 		mainWindow.webContents.openDevTools()
 	}
@@ -163,12 +181,14 @@ function createWindow (opt = {})
 		console.log('Window closed idx:%d', index)
 		windowsRegistry.splice(index, 1)
 	})
-	
+	/* <-- FLOWIO added */
 	mainWindow.webContents.on('dom-ready',()=>{
 		let query = getUserParams()
 		mainWindow.webContents.send('args-obj', {'loadFlowio':{'data':null,'name':'Untitled diagram.drawio'}});	
 		loadLocalLibraries(mainWindow, query)
 	})
+	/* --> */
+
 	mainWindow.webContents.on('did-fail-load', function(err)
     {
 			let query = getUserParams(DEFAULT_OFFLINE_QUERY)
@@ -235,7 +255,7 @@ app.on('ready', e =>
         win.webContents.setVisualZoomLevelLimits(1, 1);
         win.webContents.setLayoutZoomLevelLimits(0, 0);
     });
-
+	/* <-- FLOWIO modified */
 	let template = [{
 	    label: 'flow.io',
 	    submenu: [
@@ -268,7 +288,7 @@ app.on('ready', e =>
 	        click() { app.quit(); }
 	      }]
 	}]
-
+	/* --> */
 	if (process.platform === 'darwin')
 	{
 	    template = [{
