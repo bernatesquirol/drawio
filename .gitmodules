@@ -1,0 +1,3 @@
+[submodule "src/main/webapp/flowio-core"]
+	path = src/main/webapp/flowio-core
+	url = https://github.com/bernatesquirol/flowio-core
