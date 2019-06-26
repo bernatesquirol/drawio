@@ -51,7 +51,18 @@ const DEFAULT_OFFLINE_QUERY = {
 app.setName('flowio')
 app.setPath('userData',path.join(app.getPath('appData'),app.getName()))
 
-
+function changeFlowioPath(params, win=null){
+	let path_url_params = path.join(app.getPath('userData'),'urlParams.json')
+	var paths = dialog.showOpenDialog({properties: ['openDirectory']});
+	if (paths !== undefined && paths[0] != null)
+	{
+		//console.log(paths[0])		
+		fs.writeFile(path_url_params, JSON.stringify({...params, flowio_path:paths[0]}), ()=>{
+			if (win)win.webContents.executeJavaScript('alert("Successfully changed flowio_path!")')
+		})
+		return paths[0]
+	}
+}
 function loadLocalLibrary(win, key, value){
 	win.webContents.send('args-obj', {'llib':{key, value}});
 }
@@ -71,7 +82,7 @@ function getUserParams(must_query={}){
 	let query = {}
 	if(!fs.existsSync(path_url_params)){
 		query = DEFAULT_QUERY
-		fs.writeFile(path_url_params, JSON.stringify(query), ()=>{})
+		fs.writeFileSync(path_url_params, JSON.stringify(query))		
 		console.log('Written default user params')
 	}else{
 		urlparams = fs.readFileSync(path_url_params,'utf8')
@@ -206,6 +217,7 @@ function createWindow (opt = {})
 	return mainWindow
 }
 
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -256,12 +268,26 @@ app.on('ready', e =>
         win.webContents.setLayoutZoomLevelLimits(0, 0);
     });
 	/* <-- FLOWIO modified */
+	let promise_index = flowio.createFileIndex(getUserParams()['flowio_path'])
+	promise_index.then((index)=>{
+		
+		flowio.extractLogicFromFunction(index,'Y4Y8ZeNZF_gMD-fdVoiC').then((result)=>{
+			//console.log(result)
+		})
+	})
+	
 	let template = [{
 	    label: 'flow.io',
 	    submenu: [
 	      {
 	        label: 'Change URL parameters',
 	        click() { shell.openItem(app.getPath('userData')); }
+				},
+				{
+	        label: 'Change diagrams folder',
+	        click() { 
+						changeFlowioPath(win)
+					}
 				},
 				{
 	        label: 'Expand diagram',
