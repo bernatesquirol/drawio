@@ -1,6 +1,12 @@
 # Guia del desenvolupador - flowio
 
-Aquesta és la guia per a desenvolupadors del repositori flowio. 
+Aquesta és la guia per a desenvolupadors del repositori flowio.  
+
+https://bernatesquirol.github.com/flowio
+
+Aquest projecte inclou:
+
+[flowio-desktop](https://github.com/bernatesquirol/flowio-desktop) [flowio-core](https://github.com/bernatesquirol/flowio-core) [flowio](https://github.com/bernatesquirol/flowio) [flowio-docs](https://github.com/bernatesquirol/flowio-docs/) 
 
 ## Dependències 🚩
 
@@ -46,7 +52,7 @@ Per defecte crea la versió portable, la unpacked i la d'instal·lació.
 
 Aquí es presenta el mapa del projecte, amb tots els repositoris involucrats.
 
-![dev-dependencies-forks](.\doc\dev-dependencies-forks.png)
+![dev-dependencies-forks](.\docs\dev-dependencies-forks.png)
 
 1. [drawio](https://github.com/jgraph/drawio) 
 
